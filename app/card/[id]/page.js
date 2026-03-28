@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { Panel, SectionLabel, PriceTag, MonoText, PixelText, HoloBadge, EraTag, Spinner, Button } from "@/components/shared/ui";
 import { addCard, getCollection } from "@/lib/collection";
 
@@ -16,6 +16,7 @@ const MOCK_HISTORY = [
 function fmt(n)     { return "$" + Number(n||0).toLocaleString("en-US",{maximumFractionDigits:0}); }
 function fmtFull(n) { return "$" + Number(n||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function timeAgo(iso) {
+  if (!iso) return "—";
   const d = new Date(iso), now = new Date();
   const days = Math.floor((now - d) / 86400000);
   if (days === 0) return "Today";
@@ -33,39 +34,48 @@ function ChartTip({ active, payload, label }) {
   );
 }
 
-export default function CardDetail() {
-  const { id }        = useParams();
-  const [card,        setCard]        = useState(null);
-  const [ebay,        setEbay]        = useState({ items:[], source:"loading" });
-  const [condition,   setCondition]   = useState("Raw");
-  const [tab,         setTab]         = useState("ebay");
-  const [adding,      setAdding]      = useState(false);
-  const [inCollection,setInCollection]= useState(false);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [addGrade,    setAddGrade]    = useState("Raw");
-  const [addCond,     setAddCond]     = useState("NM");
-  const [addPrice,    setAddPrice]    = useState("");
-  const [added,       setAdded]       = useState(false);
-  const [chartRange,  setChartRange]  = useState("6mo");
+function getEra(date) {
+  if (!date) return "20s";
+  const y = parseInt(date.slice(0,4));
+  if (y < 2003) return "90s";
+  if (y < 2010) return "00s";
+  if (y < 2020) return "10s";
+  return "20s";
+}
 
-  /* Fetch card from Pokémon TCG API */
+export default function CardDetail() {
+  const { id }         = useParams();
+  const [card,         setCard]         = useState(null);
+  const [ebay,         setEbay]         = useState({ items:[], source:"loading" });
+  const [condition,    setCondition]    = useState("Raw");
+  const [tab,          setTab]          = useState("ebay");
+  const [adding,       setAdding]       = useState(false);
+  const [inCollection, setInCollection] = useState(false);
+  const [showAddForm,  setShowAddForm]  = useState(false);
+  const [addGrade,     setAddGrade]     = useState("Raw");
+  const [addCond,      setAddCond]      = useState("NM");
+  const [addPrice,     setAddPrice]     = useState("");
+  const [added,        setAdded]        = useState(false);
+  const [chartRange,   setChartRange]   = useState("6mo");
+
   useEffect(() => {
     if (!id) return;
     fetch(`/api/cards?q=id:${id}&pageSize=1`)
       .then(r => r.json())
-      .then(d => setCard(d.data?.[0] || null));
+      .then(d => setCard(d.data?.[0] || null))
+      .catch(() => setCard(null));
   }, [id]);
 
-  /* Fetch eBay sold listings */
   useEffect(() => {
     if (!card) return;
+    setEbay({ items:[], source:"loading" });
     const q = `${card.name} ${card.set?.name} ${card.number}`;
     fetch(`/api/ebay?card=${encodeURIComponent(q)}&condition=${encodeURIComponent(condition)}`)
       .then(r => r.json())
-      .then(d => setEbay(d));
+      .then(d => setEbay(d))
+      .catch(() => setEbay({ items:[], source:"error" }));
   }, [card, condition]);
 
-  /* Check if already in collection */
   useEffect(() => {
     if (!card) return;
     getCollection().then(items => {
@@ -77,38 +87,29 @@ export default function CardDetail() {
     if (!card) return;
     setAdding(true);
     await addCard({
-      card_id:       card.id,
-      name:          card.name,
-      set_name:      card.set?.name,
-      set_id:        card.set?.id,
-      number:        card.number,
-      image_url:     card.images?.small,
-      rarity:        card.rarity,
-      condition:     addCond,
-      grade:         addGrade,
-      current_price: ebayAvg || 0,
+      card_id:        card.id,
+      name:           card.name,
+      set_name:       card.set?.name,
+      set_id:         card.set?.id,
+      number:         card.number,
+      image_url:      card.images?.small,
+      rarity:         card.rarity,
+      condition:      addCond,
+      grade:          addGrade,
+      current_price:  ebayAvg || 0,
       purchase_price: addPrice ? parseFloat(addPrice) : null,
-      holo:          card.rarity?.toLowerCase().includes("holo"),
-      flagged:       false,
-      print_variant: "unlimited",
-      language:      "en",
-      quantity:      1,
-      era:           getEra(card.set?.releaseDate),
+      holo:           card.rarity?.toLowerCase().includes("holo"),
+      flagged:        false,
+      print_variant:  "unlimited",
+      language:       "en",
+      quantity:       1,
+      era:            getEra(card.set?.releaseDate),
     });
     setAdding(false);
     setAdded(true);
     setInCollection(true);
     setShowAddForm(false);
   };
-
-  function getEra(date) {
-    if (!date) return "20s";
-    const y = parseInt(date.slice(0,4));
-    if (y < 2003) return "90s";
-    if (y < 2010) return "00s";
-    if (y < 2020) return "10s";
-    return "20s";
-  }
 
   if (!card) return (
     <div style={{ display:"flex", justifyContent:"center", alignItems:"center", height:"70vh", flexDirection:"column", gap:12 }}>
@@ -117,21 +118,25 @@ export default function CardDetail() {
     </div>
   );
 
-  const typeColor  = card.types?.[0] === "Fire" ? "#ef4444" : card.types?.[0] === "Water" ? "#3b82f6" : card.types?.[0] === "Grass" ? "#22c55e" : card.types?.[0] === "Psychic" ? "#8b5cf6" : card.types?.[0] === "Lightning" ? "#f59e0b" : "#64748b";
-  const isHolo     = card.rarity?.toLowerCase().includes("holo") || card.rarity?.toLowerCase().includes("rare");
-  const era        = getEra(card.set?.releaseDate);
+  const typeColor = card.types?.[0] === "Fire"      ? "#ef4444"
+    : card.types?.[0] === "Water"     ? "#3b82f6"
+    : card.types?.[0] === "Grass"     ? "#22c55e"
+    : card.types?.[0] === "Psychic"   ? "#8b5cf6"
+    : card.types?.[0] === "Lightning" ? "#f59e0b"
+    : "#64748b";
 
-  /* Compute eBay stats */
-  const prices    = ebay.items.map(i => i.price).filter(Boolean);
-  const ebayAvg   = prices.length ? Math.round(prices.reduce((a,b)=>a+b,0)/prices.length) : null;
-  const ebayHigh  = prices.length ? Math.max(...prices) : null;
-  const ebayLow   = prices.length ? Math.min(...prices) : null;
+  const isHolo = card.rarity?.toLowerCase().includes("holo") || card.rarity?.toLowerCase().includes("rare");
+  const era    = getEra(card.set?.releaseDate);
+
+  const prices   = ebay.items.map(i => i.price).filter(Boolean);
+  const ebayAvg  = prices.length ? Math.round(prices.reduce((a,b)=>a+b,0)/prices.length) : null;
+  const ebayHigh = prices.length ? Math.max(...prices) : null;
+  const ebayLow  = prices.length ? Math.min(...prices) : null;
 
   return (
     <div style={{ background:"var(--bg-base)", minHeight:"100vh", padding:"20px 24px 60px" }}>
       <div style={{ maxWidth:1100, margin:"0 auto" }}>
 
-        {/* Breadcrumb */}
         <div style={{ fontSize:12, color:"var(--text-dim)", marginBottom:16, display:"flex", gap:6, fontFamily:"var(--font-mono)" }}>
           <Link href="/browse" style={{ color:"var(--text-muted)", textDecoration:"none" }}>Browse</Link>
           <span>›</span>
@@ -140,9 +145,7 @@ export default function CardDetail() {
           <span style={{ color:"var(--text-secondary)" }}>{card.name}</span>
         </div>
 
-        {/* Header */}
         <div style={{ display:"flex", gap:24, alignItems:"flex-start", marginBottom:24, flexWrap:"wrap" }}>
-          {/* Card image */}
           <div style={{ flexShrink:0 }}>
             {card.images?.large
               ? <img src={card.images.large} alt={card.name} style={{ width:200, borderRadius:12, boxShadow:`0 8px 32px ${typeColor}33` }} />
@@ -150,7 +153,6 @@ export default function CardDetail() {
             }
           </div>
 
-          {/* Meta */}
           <div style={{ flex:1, minWidth:280 }}>
             <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:6, flexWrap:"wrap" }}>
               <h1 style={{ fontSize:26, fontWeight:700, color:"var(--text-primary)", margin:0, letterSpacing:"-0.5px" }}>{card.name}</h1>
@@ -162,7 +164,6 @@ export default function CardDetail() {
               {card.set?.name} · #{card.number} · {card.set?.releaseDate?.slice(0,4)}
             </div>
 
-            {/* Types */}
             {card.types && (
               <div style={{ display:"flex", gap:6, marginBottom:16 }}>
                 {card.types.map(t => (
@@ -171,14 +172,12 @@ export default function CardDetail() {
               </div>
             )}
 
-            {/* Condition tabs */}
             <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:16 }}>
               {CONDITIONS.map(c => (
                 <button key={c} onClick={() => setCondition(c)} style={{ padding:"5px 12px", borderRadius:7, fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:"var(--font-mono)", border: condition===c?"1px solid var(--accent-blue)":"1px solid var(--border)", background: condition===c?"#1e3a5f":"transparent", color: condition===c?"#93c5fd":"var(--text-muted)", transition:"all .15s" }}>{c}</button>
               ))}
             </div>
 
-            {/* CTAs */}
             <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
               {!inCollection && !added ? (
                 <Button variant="primary" onClick={() => setShowAddForm(!showAddForm)} style={{ fontSize:10 }}>
@@ -194,7 +193,6 @@ export default function CardDetail() {
               </Link>
             </div>
 
-            {/* Quick add form */}
             {showAddForm && (
               <div style={{ marginTop:14, background:"var(--bg-card)", border:"1px solid var(--border)", borderRadius:10, padding:"14px" }}>
                 <SectionLabel style={{ marginBottom:10 }}>Quick add</SectionLabel>
@@ -216,7 +214,9 @@ export default function CardDetail() {
                   <div style={{ fontSize:11, color:"var(--text-muted)", marginBottom:5 }}>Purchase price (optional)</div>
                   <input value={addPrice} onChange={e=>setAddPrice(e.target.value)} placeholder="$0.00" style={{ width:"100%", padding:"7px 10px", fontSize:12, borderRadius:7 }} />
                 </div>
-                <div style={{ fontSize:11, color:"#f87171", marginBottom:10 }}>⚠ For full variant verification, use the <Link href="/scan" style={{ color:"var(--accent-blue)" }}>Scan flow</Link> instead.</div>
+                <div style={{ fontSize:11, color:"#f87171", marginBottom:10 }}>
+                  ⚠ For full variant verification, use the <Link href="/scan" style={{ color:"var(--accent-blue)" }}>Scan flow</Link> instead.
+                </div>
                 <Button variant="success" onClick={handleAdd} disabled={adding} style={{ width:"100%", fontSize:10 }}>
                   {adding ? "ADDING..." : "ADD TO COLLECTION"}
                 </Button>
@@ -225,14 +225,13 @@ export default function CardDetail() {
           </div>
         </div>
 
-        {/* Price cards */}
         <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:10, marginBottom:20 }}>
           {[
-            { label:"eBay avg (30d)",  value:ebayAvg,  sub:`${prices.length} sales`,   accent:true,  dot:"#f59e0b" },
-            { label:"eBay high (30d)", value:ebayHigh, sub:"top sale",                 accent:false, dot:"#f59e0b" },
-            { label:"eBay low (30d)",  value:ebayLow,  sub:"floor price",              accent:false, dot:"#f59e0b" },
+            { label:"eBay avg (30d)",  value:ebayAvg,  sub:`${prices.length} sales`,  accent:true,  dot:"#f59e0b" },
+            { label:"eBay high (30d)", value:ebayHigh, sub:"top sale",                accent:false, dot:"#f59e0b" },
+            { label:"eBay low (30d)",  value:ebayLow,  sub:"floor price",             accent:false, dot:"#f59e0b" },
             { label:"TCGplayer",       value:card.tcgplayer?.prices?.holofoil?.market || card.tcgplayer?.prices?.normal?.market, sub:"market price", accent:false, dot:"#3b82f6" },
-            { label:"CardMarket",      value:card.cardmarket?.prices?.averageSellPrice, sub:"avg sell",  accent:false, dot:"#a855f7" },
+            { label:"CardMarket",      value:card.cardmarket?.prices?.averageSellPrice, sub:"avg sell", accent:false, dot:"#a855f7" },
           ].map(({ label, value, sub, accent, dot }) => (
             <Panel key={label} accent={accent ? "var(--accent-amber)" : null} style={{ padding:"14px" }}>
               <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom:8 }}>
@@ -248,7 +247,6 @@ export default function CardDetail() {
           ))}
         </div>
 
-        {/* Chart */}
         <Panel style={{ padding:"18px 20px 12px", marginBottom:20 }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
             <div>
@@ -269,10 +267,9 @@ export default function CardDetail() {
               <Line type="monotone" dataKey="p" stroke="#f59e0b" strokeWidth={2} dot={false} activeDot={{ r:3, fill:"#f59e0b", strokeWidth:0 }} />
             </LineChart>
           </ResponsiveContainer>
-          <div style={{ fontSize:11, color:"var(--text-dim)", marginTop:8 }}>Price history chart shows mock data — real tracking starts once you add your API keys.</div>
+          <div style={{ fontSize:11, color:"var(--text-dim)", marginTop:8 }}>Price history shows mock data — real tracking coming soon.</div>
         </Panel>
 
-        {/* Tabs */}
         <div style={{ display:"flex", gap:0, borderBottom:"1px solid var(--border)", marginBottom:16 }}>
           {[
             { key:"ebay",  label:`eBay Sold (${ebay.items.length})` },
@@ -283,17 +280,18 @@ export default function CardDetail() {
           ))}
         </div>
 
-        {/* eBay sold tab */}
         {tab === "ebay" && (
           <Panel style={{ overflow:"hidden" }}>
             <div style={{ padding:"12px 16px", borderBottom:"1px solid var(--border-dim)", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
               <div style={{ fontSize:12, color:"var(--text-muted)" }}>
-                Real eBay sold listings · <span style={{ color:"var(--accent-gold)" }}>{condition}</span>
-                {ebay.source === "mock" && <span style={{ marginLeft:8, fontSize:10, color:"var(--text-dim)", fontFamily:"var(--font-mono)" }}>(demo data — add eBay API key for live data)</span>}
+                eBay sold listings · <span style={{ color:"var(--accent-gold)" }}>{condition}</span>
+                {ebay.source === "mock" && <span style={{ marginLeft:8, fontSize:10, color:"var(--text-dim)", fontFamily:"var(--font-mono)" }}>(demo data — add eBay API key for live)</span>}
               </div>
             </div>
             {ebay.source === "loading" ? (
               <div style={{ padding:32, display:"flex", justifyContent:"center" }}><Spinner /></div>
+            ) : ebay.items.length === 0 ? (
+              <div style={{ padding:32, textAlign:"center", color:"var(--text-dim)", fontSize:13 }}>No listings found</div>
             ) : (
               <>
                 <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
@@ -330,7 +328,9 @@ export default function CardDetail() {
                     <span>Avg: <span style={{ color:"#f59e0b", fontWeight:600 }}>{fmtFull(ebayAvg)}</span></span>
                     {ebayHigh && <span>High: <span style={{ color:"#4ade80" }}>{fmtFull(ebayHigh)}</span></span>}
                     {ebayLow  && <span>Low: <span style={{ color:"#f87171" }}>{fmtFull(ebayLow)}</span></span>}
-                    {ebay.items[0]?.url && <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ marginLeft:"auto", color:"var(--accent-blue)", textDecoration:"none" }}>Search eBay ↗</a>}
+                    {ebay.items[0]?.url && (
+                      <a href={ebay.items[0].url} target="_blank" rel="noopener noreferrer" style={{ marginLeft:"auto", color:"var(--accent-blue)", textDecoration:"none" }}>Search eBay ↗</a>
+                    )}
                   </div>
                 )}
               </>
@@ -338,17 +338,16 @@ export default function CardDetail() {
           </Panel>
         )}
 
-        {/* Stats tab */}
         {tab === "stats" && (
           <Panel style={{ padding:20 }}>
             <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:16 }}>
               {[
-                { label:"HP",          value: card.hp ? `${card.hp} HP` : "—" },
-                { label:"Rarity",      value: card.rarity || "—" },
-                { label:"Artist",      value: card.artist || "—" },
-                { label:"Set",         value: card.set?.name || "—" },
-                { label:"Release",     value: card.set?.releaseDate || "—" },
-                { label:"Number",      value: card.number ? `${card.number}/${card.set?.printedTotal || "?"}` : "—" },
+                { label:"HP",      value: card.hp ? `${card.hp} HP` : "—" },
+                { label:"Rarity",  value: card.rarity || "—" },
+                { label:"Artist",  value: card.artist || "—" },
+                { label:"Set",     value: card.set?.name || "—" },
+                { label:"Release", value: card.set?.releaseDate || "—" },
+                { label:"Number",  value: card.number ? `${card.number}/${card.set?.printedTotal || "?"}` : "—" },
               ].map(({ label, value }) => (
                 <div key={label}>
                   <SectionLabel style={{ marginBottom:4 }}>{label}</SectionLabel>
@@ -373,7 +372,6 @@ export default function CardDetail() {
           </Panel>
         )}
 
-        {/* Other printings tab */}
         {tab === "sets" && (
           <Panel style={{ padding:20 }}>
             <div style={{ fontSize:13, color:"var(--text-muted)", marginBottom:16 }}>
