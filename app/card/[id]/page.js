@@ -1,12 +1,14 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import { Panel, SectionLabel, PriceTag, MonoText, PixelText, HoloBadge, EraTag, Spinner, Button } from "@/components/shared/ui";
-import { addCard, getCollection } from "@/lib/collection";
+import { Panel, SectionLabel, MonoText, PixelText, HoloBadge, EraTag, Spinner, Button } from "@/components/shared/ui";
+import { addCard, getCollection, updateCard, removeCard } from "@/lib/collection";
 
-const CONDITIONS = ["Raw", "PSA 9", "PSA 10", "PSA 8", "PSA 7", "BGS 9.5", "BGS 9"];
+const GRADE_OPTIONS = ["Raw","PSA 10","PSA 9","PSA 8","PSA 7","BGS 9.5","BGS 9","CGC 10","CGC 9"];
+const COND_OPTIONS  = ["NM","LP","MP","HP","D"];
+const PRICE_CONDITIONS = ["Raw", "PSA 9", "PSA 10", "PSA 8", "PSA 7", "BGS 9.5", "BGS 9"];
 
 const MOCK_HISTORY = [
   { d:"Oct", p:310 },{ d:"Nov", p:295 },{ d:"Dec", p:340 },
@@ -14,7 +16,10 @@ const MOCK_HISTORY = [
 ];
 
 function fmt(n)     { return "$" + Number(n||0).toLocaleString("en-US",{maximumFractionDigits:0}); }
-function fmtFull(n) { return "$" + Number(n||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtFull(n) {
+  if (n == null) return "—";
+  return "$" + Number(n).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+}
 function timeAgo(iso) {
   if (!iso) return "—";
   const d = new Date(iso), now = new Date();
@@ -43,32 +48,208 @@ function getEra(date) {
   return "20s";
 }
 
-/* ── Best available price from a card object (TCGplayer data) ── */
 function getTcgPrice(card) {
   const p = card?.tcgplayer?.prices;
   if (!p) return null;
-  return p.holofoil?.market
-    || p.normal?.market
-    || p.reverseHolofoil?.market
-    || p["1stEditionHolofoil"]?.market
-    || p.unlimitedHolofoil?.market
-    || null;
+  return p.holofoil?.market || p.normal?.market || p.reverseHolofoil?.market
+    || p["1stEditionHolofoil"]?.market || p.unlimitedHolofoil?.market || null;
+}
+
+/* ── My Copy Panel ── shown when card is in collection ── */
+function MyCopyPanel({ collectionItem, bestPrice, onUpdated, onDeleted }) {
+  const [editing,  setEditing]  = useState(false);
+  const [grade,    setGrade]    = useState(collectionItem.grade    || "Raw");
+  const [cond,     setCond]     = useState(collectionItem.condition|| "NM");
+  const [purchase, setPurchase] = useState(collectionItem.purchase_price || "");
+  const [notes,    setNotes]    = useState(collectionItem.notes    || "");
+  const [saving,   setSaving]   = useState(false);
+  const [showDel,  setShowDel]  = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const currentPrice = collectionItem.current_price || bestPrice;
+  const hasCost      = collectionItem.purchase_price > 0;
+  const gain         = currentPrice && hasCost ? currentPrice - collectionItem.purchase_price : null;
+  const gainPct      = gain !== null ? ((gain / collectionItem.purchase_price) * 100).toFixed(1) : null;
+  const gradeChanged = grade !== collectionItem.grade;
+
+  const handleSave = async () => {
+    setSaving(true);
+    const updates = { grade, condition: cond, notes };
+    if (purchase !== "") updates.purchase_price = parseFloat(purchase);
+    if (gradeChanged) updates.current_price = null; // trigger price refresh
+    await updateCard(collectionItem.id, updates);
+    setSaving(false);
+    setEditing(false);
+    onUpdated({ ...collectionItem, ...updates });
+  };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    await removeCard(collectionItem.id);
+    setDeleting(false);
+    onDeleted();
+  };
+
+  return (
+    <Panel accent="var(--accent-green)" style={{ marginBottom:20 }}>
+      <div style={{ padding:"14px 16px" }}>
+        {/* Header row */}
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <div style={{ width:8, height:8, borderRadius:"50%", background:"var(--accent-green)", boxShadow:"0 0 6px #22c55e" }} />
+            <PixelText size={10} color="var(--accent-green)">IN YOUR COLLECTION</PixelText>
+          </div>
+          <div style={{ display:"flex", gap:8 }}>
+            <button onClick={() => setEditing(!editing)} style={{ padding:"5px 12px", borderRadius:6, fontSize:11, cursor:"pointer", border:"1px solid #2d5a8e", background: editing ? "#1e3a5f" : "transparent", color: editing ? "#93c5fd" : "var(--text-muted)", fontFamily:"var(--font-mono)" }}>
+              {editing ? "Cancel" : "✎ Edit"}
+            </button>
+            <button onClick={() => setShowDel(true)} style={{ padding:"5px 12px", borderRadius:6, fontSize:11, cursor:"pointer", border:"1px solid #7f1d1d", background:"transparent", color:"#f87171", fontFamily:"var(--font-mono)" }}>
+              Release
+            </button>
+          </div>
+        </div>
+
+        {!editing ? (
+          /* ── View mode ── */
+          <div>
+            {/* Stats row */}
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, marginBottom: (gain !== null || collectionItem.notes) ? 12 : 0 }}>
+              {[
+                { label:"Grade",     value: collectionItem.grade || "Raw" },
+                { label:"Condition", value: collectionItem.condition || "—" },
+                { label:"Value",     value: currentPrice ? fmtFull(currentPrice) : "— unpriced" },
+                { label:"Paid",      value: hasCost ? fmtFull(collectionItem.purchase_price) : "—" },
+              ].map(({ label, value }) => (
+                <div key={label} style={{ background:"var(--bg-base)", borderRadius:8, padding:"10px 12px", border:"1px solid var(--border-dim)" }}>
+                  <SectionLabel style={{ marginBottom:4 }}>{label}</SectionLabel>
+                  <div style={{ fontSize:13, fontWeight:600, color: label === "Value" ? "var(--accent-gold)" : "var(--text-primary)", fontFamily: label === "Value" || label === "Paid" ? "var(--font-mono)" : "inherit" }}>{value}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Gain/loss */}
+            {gain !== null && (
+              <div style={{ padding:"10px 12px", borderRadius:8, background: gain >= 0 ? "#052e16" : "#450a0a", border:`1px solid ${gain >= 0 ? "#22c55e33" : "#7f1d1d33"}`, marginBottom: collectionItem.notes ? 10 : 0 }}>
+                <div style={{ fontSize:12, color: gain >= 0 ? "#4ade80" : "#f87171", fontFamily:"var(--font-mono)", fontWeight:600 }}>
+                  {gain >= 0 ? "▲" : "▼"} {gain >= 0 ? "+" : ""}{fmtFull(gain)} ({gain >= 0 ? "+" : ""}{gainPct}%) since purchase
+                </div>
+              </div>
+            )}
+
+            {/* Notes */}
+            {collectionItem.notes && (
+              <div style={{ fontSize:11, color:"var(--text-muted)", fontStyle:"italic", marginTop:8 }}>"{collectionItem.notes}"</div>
+            )}
+
+            {/* Variant details */}
+            <div style={{ display:"flex", gap:6, marginTop:10, flexWrap:"wrap" }}>
+              {collectionItem.print_variant && collectionItem.print_variant !== "unlimited" && (
+                <span style={{ fontSize:9, padding:"2px 7px", borderRadius:3, background:"#2a1e00", border:"1px solid #92400e", color:"#fbbf24", fontFamily:"var(--font-mono)" }}>
+                  {collectionItem.print_variant === "1st_edition" ? "1st Edition" : collectionItem.print_variant}
+                </span>
+              )}
+              {collectionItem.language && collectionItem.language !== "en" && (
+                <span style={{ fontSize:9, padding:"2px 7px", borderRadius:3, background:"#1e0a3a", border:"1px solid #7c3aed44", color:"#a78bfa", fontFamily:"var(--font-mono)" }}>
+                  {collectionItem.language.toUpperCase()}
+                </span>
+              )}
+              {collectionItem.flagged && (
+                <span style={{ fontSize:9, padding:"2px 7px", borderRadius:3, background:"#450a0a", border:"1px solid #7f1d1d", color:"#f87171", fontFamily:"var(--font-mono)" }}>
+                  ⚠ VARIANT UNCONFIRMED
+                </span>
+              )}
+              {collectionItem.added_at && (
+                <span style={{ fontSize:9, color:"var(--text-dim)", fontFamily:"var(--font-mono)", marginLeft:"auto" }}>
+                  Added {timeAgo(collectionItem.added_at)}
+                </span>
+              )}
+            </div>
+          </div>
+        ) : (
+          /* ── Edit mode ── */
+          <div>
+            {gradeChanged && (
+              <div style={{ padding:"8px 12px", background:"#0a1a00", border:"1px solid #22c55e33", borderRadius:6, fontSize:11, color:"#4ade80", marginBottom:12 }}>
+                ✦ Grade changed — price will refresh automatically. Great for when a card comes back from grading!
+              </div>
+            )}
+
+            <div style={{ marginBottom:14 }}>
+              <SectionLabel style={{ marginBottom:8 }}>Grade</SectionLabel>
+              <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                {GRADE_OPTIONS.map(g => (
+                  <button key={g} onClick={() => setGrade(g)} style={{ padding:"6px 11px", borderRadius:6, fontSize:11, cursor:"pointer", border: grade===g ? "1px solid var(--accent-blue)" : "1px solid var(--border)", background: grade===g ? "#1e3a5f" : "transparent", color: grade===g ? "#93c5fd" : "var(--text-muted)" }}>{g}</button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ marginBottom:14 }}>
+              <SectionLabel style={{ marginBottom:8 }}>Condition</SectionLabel>
+              <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                {COND_OPTIONS.map(c => (
+                  <button key={c} onClick={() => setCond(c)} style={{ padding:"6px 11px", borderRadius:6, fontSize:11, cursor:"pointer", border: cond===c ? "1px solid var(--accent-amber)" : "1px solid var(--border)", background: cond===c ? "#2a1e00" : "transparent", color: cond===c ? "var(--accent-gold)" : "var(--text-muted)" }}>{c}</button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:14 }}>
+              <div>
+                <SectionLabel style={{ marginBottom:8 }}>Purchase price</SectionLabel>
+                <input value={purchase} onChange={e=>setPurchase(e.target.value)} placeholder="$0.00"
+                  style={{ width:"100%", padding:"9px 12px", borderRadius:8, fontSize:13, fontFamily:"var(--font-mono)" }} />
+              </div>
+              <div>
+                <SectionLabel style={{ marginBottom:8 }}>Notes</SectionLabel>
+                <input value={notes} onChange={e=>setNotes(e.target.value)} placeholder="e.g. Minor edge wear..."
+                  style={{ width:"100%", padding:"9px 12px", borderRadius:8, fontSize:13 }} />
+              </div>
+            </div>
+
+            <button onClick={handleSave} disabled={saving} style={{ width:"100%", padding:"12px", borderRadius:8, border:"none", background:"linear-gradient(135deg,#22c55e,#16a34a)", color:"#000", cursor:"pointer", fontSize:11, fontWeight:700, fontFamily:"var(--font-pixel)", opacity: saving ? 0.7 : 1 }}>
+              {saving ? "SAVING..." : "SAVE CHANGES"}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Delete confirm */}
+      {showDel && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.8)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200, padding:20 }}>
+          <Panel style={{ padding:24, maxWidth:360, width:"100%", textAlign:"center" }}>
+            <PixelText size={11} color="#f87171" style={{ display:"block", marginBottom:12 }}>RELEASE CARD?</PixelText>
+            {currentPrice && (
+              <div style={{ fontSize:12, color:"var(--text-dim)", marginBottom:8, fontFamily:"var(--font-mono)" }}>
+                Current value: <span style={{ color:"var(--accent-gold)" }}>{fmtFull(currentPrice)}</span>
+              </div>
+            )}
+            <div style={{ fontSize:11, color:"var(--text-dim)", marginBottom:20, fontStyle:"italic" }}>Released to another trainer</div>
+            <div style={{ display:"flex", gap:10 }}>
+              <button onClick={() => setShowDel(false)} style={{ flex:1, padding:"10px", borderRadius:8, border:"1px solid var(--border)", background:"transparent", color:"var(--text-muted)", cursor:"pointer", fontSize:12 }}>Keep it</button>
+              <button onClick={handleDelete} disabled={deleting} style={{ flex:1, padding:"10px", borderRadius:8, border:"1px solid #7f1d1d", background:"#450a0a", color:"#f87171", cursor:"pointer", fontSize:12, fontWeight:600 }}>
+                {deleting ? "Releasing..." : "Release"}
+              </button>
+            </div>
+          </Panel>
+        </div>
+      )}
+    </Panel>
+  );
 }
 
 export default function CardDetail() {
-  const { id }         = useParams();
-  const [card,         setCard]         = useState(null);
-  const [ebay,         setEbay]         = useState({ items:[], source:"loading" });
-  const [condition,    setCondition]    = useState("Raw");
-  const [tab,          setTab]          = useState("ebay");
-  const [adding,       setAdding]       = useState(false);
-  const [inCollection, setInCollection] = useState(false);
-  const [showAddForm,  setShowAddForm]  = useState(false);
-  const [addGrade,     setAddGrade]     = useState("Raw");
-  const [addCond,      setAddCond]      = useState("NM");
-  const [addPrice,     setAddPrice]     = useState("");
-  const [added,        setAdded]        = useState(false);
-  const [chartRange,   setChartRange]   = useState("6mo");
+  const { id }           = useParams();
+  const router           = useRouter();
+  const [card,           setCard]           = useState(null);
+  const [ebay,           setEbay]           = useState({ items:[], source:"loading" });
+  const [condition,      setCondition]      = useState("Raw");
+  const [tab,            setTab]            = useState("ebay");
+  const [adding,         setAdding]         = useState(false);
+  const [collectionItem, setCollectionItem] = useState(null); // null = not in collection
+  const [showAddForm,    setShowAddForm]    = useState(false);
+  const [addGrade,       setAddGrade]       = useState("Raw");
+  const [addCond,        setAddCond]        = useState("NM");
+  const [addPrice,       setAddPrice]       = useState("");
+  const [chartRange,     setChartRange]     = useState("6mo");
 
   useEffect(() => {
     if (!id) return;
@@ -91,7 +272,8 @@ export default function CardDetail() {
   useEffect(() => {
     if (!card) return;
     getCollection().then(items => {
-      setInCollection(items.some(i => i.card_id === card.id));
+      const found = items.find(i => i.card_id === card.id);
+      setCollectionItem(found || null);
     });
   }, [card]);
 
@@ -102,7 +284,7 @@ export default function CardDetail() {
     </div>
   );
 
-  const typeColor = card.types?.[0] === "Fire"      ? "#ef4444"
+  const typeColor = card.types?.[0] === "Fire" ? "#ef4444"
     : card.types?.[0] === "Water"     ? "#3b82f6"
     : card.types?.[0] === "Grass"     ? "#22c55e"
     : card.types?.[0] === "Psychic"   ? "#8b5cf6"
@@ -117,19 +299,15 @@ export default function CardDetail() {
   const ebayHigh = prices.length ? Math.max(...prices) : null;
   const ebayLow  = prices.length ? Math.min(...prices) : null;
 
-  /* ── Price fallback chain: eBay sold avg → TCGplayer → CardMarket → null ── */
-  const tcgPrice = getTcgPrice(card);
-  const cmPrice  = card.cardmarket?.prices?.averageSellPrice || null;
+  const tcgPrice  = getTcgPrice(card);
+  const cmPrice   = card.cardmarket?.prices?.averageSellPrice || null;
   const bestPrice = ebayAvg || tcgPrice || cmPrice || null;
-  const priceSource = ebayAvg ? "eBay avg"
-    : tcgPrice ? "TCGplayer"
-    : cmPrice  ? "CardMarket"
-    : null;
+  const priceSource = ebayAvg ? "eBay avg" : tcgPrice ? "TCGplayer" : cmPrice ? "CardMarket" : null;
 
   const handleAdd = async () => {
     if (!card) return;
     setAdding(true);
-    await addCard({
+    const item = await addCard({
       card_id:        card.id,
       name:           card.name,
       set_name:       card.set?.name,
@@ -139,7 +317,6 @@ export default function CardDetail() {
       rarity:         card.rarity,
       condition:      addCond,
       grade:          addGrade,
-      /* Use best available price — never save zero */
       current_price:  bestPrice,
       purchase_price: addPrice ? parseFloat(addPrice) : null,
       holo:           card.rarity?.toLowerCase().includes("holo"),
@@ -150,8 +327,7 @@ export default function CardDetail() {
       era:            getEra(card.set?.releaseDate),
     });
     setAdding(false);
-    setAdded(true);
-    setInCollection(true);
+    setCollectionItem(item);
     setShowAddForm(false);
   };
 
@@ -159,6 +335,7 @@ export default function CardDetail() {
     <div style={{ background:"var(--bg-base)", minHeight:"100vh", padding:"20px 24px 60px" }}>
       <div style={{ maxWidth:1100, margin:"0 auto" }}>
 
+        {/* Breadcrumb */}
         <div style={{ fontSize:12, color:"var(--text-dim)", marginBottom:16, display:"flex", gap:6, fontFamily:"var(--font-mono)" }}>
           <Link href="/browse" style={{ color:"var(--text-muted)", textDecoration:"none" }}>Browse</Link>
           <span>›</span>
@@ -167,6 +344,7 @@ export default function CardDetail() {
           <span style={{ color:"var(--text-secondary)" }}>{card.name}</span>
         </div>
 
+        {/* Card header */}
         <div style={{ display:"flex", gap:24, alignItems:"flex-start", marginBottom:24, flexWrap:"wrap" }}>
           <div style={{ flexShrink:0 }}>
             {card.images?.large
@@ -194,7 +372,6 @@ export default function CardDetail() {
               </div>
             )}
 
-            {/* Best available price banner */}
             {bestPrice && (
               <div style={{ marginBottom:16, padding:"10px 14px", background:"#0a1a0a", border:"1px solid #22c55e33", borderRadius:8, display:"flex", alignItems:"center", gap:10 }}>
                 <div style={{ fontFamily:"var(--font-mono)", fontSize:20, fontWeight:700, color:"var(--accent-green)" }}>{fmtFull(bestPrice)}</div>
@@ -203,50 +380,46 @@ export default function CardDetail() {
             )}
 
             <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:16 }}>
-              {CONDITIONS.map(c => (
+              {PRICE_CONDITIONS.map(c => (
                 <button key={c} onClick={() => setCondition(c)} style={{ padding:"5px 12px", borderRadius:7, fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:"var(--font-mono)", border: condition===c?"1px solid var(--accent-blue)":"1px solid var(--border)", background: condition===c?"#1e3a5f":"transparent", color: condition===c?"#93c5fd":"var(--text-muted)", transition:"all .15s" }}>{c}</button>
               ))}
             </div>
 
-            <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
-              {!inCollection && !added ? (
+            {/* CTA — only show add button if NOT in collection */}
+            {!collectionItem && (
+              <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
                 <Button variant="primary" onClick={() => setShowAddForm(!showAddForm)} style={{ fontSize:10 }}>
                   {showAddForm ? "Cancel" : "+ ADD TO COLLECTION"}
                 </Button>
-              ) : (
-                <div style={{ padding:"8px 16px", borderRadius:8, background:"#064e3b", border:"1px solid #22c55e", color:"#4ade80", fontSize:12, fontFamily:"var(--font-mono)", fontWeight:600 }}>
-                  ✓ IN COLLECTION
-                </div>
-              )}
-              <Link href="/scan">
-                <Button variant="secondary" style={{ fontSize:12 }}>Scan a copy</Button>
-              </Link>
-            </div>
+                <Link href="/scan">
+                  <Button variant="secondary" style={{ fontSize:12 }}>Scan a copy</Button>
+                </Link>
+              </div>
+            )}
 
-            {showAddForm && (
+            {/* Quick add form */}
+            {showAddForm && !collectionItem && (
               <div style={{ marginTop:14, background:"var(--bg-card)", border:"1px solid var(--border)", borderRadius:10, padding:"14px" }}>
                 <SectionLabel style={{ marginBottom:10 }}>Quick add</SectionLabel>
-                {bestPrice && (
-                  <div style={{ marginBottom:10, padding:"8px 10px", background:"#0a1a0a", border:"1px solid #22c55e22", borderRadius:6, fontSize:11, color:"var(--text-muted)", fontFamily:"var(--font-mono)" }}>
-                    Will log market value as <span style={{ color:"var(--accent-green)" }}>{fmtFull(bestPrice)}</span> ({priceSource})
-                  </div>
-                )}
-                {!bestPrice && (
-                  <div style={{ marginBottom:10, padding:"8px 10px", background:"#1a0a00", border:"1px solid #92400e44", borderRadius:6, fontSize:11, color:"#fbbf24" }}>
-                    ⚠ No market price found — card will be flagged as unpriced
-                  </div>
-                )}
+                {bestPrice
+                  ? <div style={{ marginBottom:10, padding:"8px 10px", background:"#0a1a0a", border:"1px solid #22c55e22", borderRadius:6, fontSize:11, color:"var(--text-muted)", fontFamily:"var(--font-mono)" }}>
+                      Will log market value as <span style={{ color:"var(--accent-green)" }}>{fmtFull(bestPrice)}</span> ({priceSource})
+                    </div>
+                  : <div style={{ marginBottom:10, padding:"8px 10px", background:"#1a0a00", border:"1px solid #92400e44", borderRadius:6, fontSize:11, color:"#fbbf24" }}>
+                      ⚠ No market price found — card will be flagged as unpriced
+                    </div>
+                }
                 <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:10 }}>
                   <div>
                     <div style={{ fontSize:11, color:"var(--text-muted)", marginBottom:5 }}>Condition</div>
                     <select value={addCond} onChange={e=>setAddCond(e.target.value)} style={{ width:"100%", padding:"7px 10px", fontSize:12, borderRadius:7 }}>
-                      {["NM","LP","MP","HP","D"].map(c=><option key={c} value={c}>{c}</option>)}
+                      {COND_OPTIONS.map(c=><option key={c} value={c}>{c}</option>)}
                     </select>
                   </div>
                   <div>
                     <div style={{ fontSize:11, color:"var(--text-muted)", marginBottom:5 }}>Grade</div>
                     <select value={addGrade} onChange={e=>setAddGrade(e.target.value)} style={{ width:"100%", padding:"7px 10px", fontSize:12, borderRadius:7 }}>
-                      {["Raw","PSA 10","PSA 9","PSA 8","BGS 9.5","BGS 9","CGC 9"].map(g=><option key={g} value={g}>{g}</option>)}
+                      {GRADE_OPTIONS.map(g=><option key={g} value={g}>{g}</option>)}
                     </select>
                   </div>
                 </div>
@@ -264,6 +437,16 @@ export default function CardDetail() {
             )}
           </div>
         </div>
+
+        {/* ── MY COPY PANEL — appears when in collection ── */}
+        {collectionItem && (
+          <MyCopyPanel
+            collectionItem={collectionItem}
+            bestPrice={bestPrice}
+            onUpdated={(updated) => setCollectionItem(updated)}
+            onDeleted={() => { setCollectionItem(null); }}
+          />
+        )}
 
         {/* Price cards */}
         <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:10, marginBottom:20 }}>
@@ -326,7 +509,7 @@ export default function CardDetail() {
         {/* eBay tab */}
         {tab === "ebay" && (
           <Panel style={{ overflow:"hidden" }}>
-            <div style={{ padding:"12px 16px", borderBottom:"1px solid var(--border-dim)", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <div style={{ padding:"12px 16px", borderBottom:"1px solid var(--border-dim)" }}>
               <div style={{ fontSize:12, color:"var(--text-muted)" }}>
                 eBay <strong style={{ color:"var(--accent-gold)" }}>sold</strong> listings · {condition}
                 {ebay.source === "mock" && <span style={{ marginLeft:8, fontSize:10, color:"var(--text-dim)", fontFamily:"var(--font-mono)" }}>(demo data — add eBay API key for live)</span>}
@@ -417,7 +600,6 @@ export default function CardDetail() {
           </Panel>
         )}
 
-        {/* Other printings tab */}
         {tab === "sets" && (
           <Panel style={{ padding:20 }}>
             <div style={{ fontSize:13, color:"var(--text-muted)", marginBottom:16 }}>
