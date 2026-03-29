@@ -6,9 +6,10 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "rec
 import { Panel, SectionLabel, MonoText, PixelText, HoloBadge, EraTag, Spinner, Button } from "@/components/shared/ui";
 import { addCard, getCollection, updateCard, removeCard } from "@/lib/collection";
 
-const GRADE_OPTIONS = ["Raw","PSA 10","PSA 9","PSA 8","PSA 7","BGS 9.5","BGS 9","CGC 10","CGC 9"];
-const COND_OPTIONS  = ["NM","LP","MP","HP","D"];
-const PRICE_CONDITIONS = ["Raw", "PSA 9", "PSA 10", "PSA 8", "PSA 7", "BGS 9.5", "BGS 9"];
+/* ── Grade order: highest value first ── */
+const GRADE_OPTIONS    = ["Raw","PSA 10","PSA 9","PSA 8","PSA 7","BGS 9.5","BGS 9","CGC 10","CGC 9"];
+const PRICE_CONDITIONS = ["Raw","PSA 10","PSA 9","PSA 8","PSA 7","BGS 9.5","BGS 9"];
+const COND_OPTIONS     = ["NM","LP","MP","HP","D"];
 
 const MOCK_HISTORY = [
   { d:"Oct", p:310 },{ d:"Nov", p:295 },{ d:"Dec", p:340 },
@@ -55,13 +56,16 @@ function getTcgPrice(card) {
     || p["1stEditionHolofoil"]?.market || p.unlimitedHolofoil?.market || null;
 }
 
-/* ── My Copy Panel ── shown when card is in collection ── */
+/* ─────────────────────────────────────
+   MY COPY PANEL
+   Grade is handled by the tabs above —
+   edit panel only shows cond/price/notes
+───────────────────────────────────── */
 function MyCopyPanel({ collectionItem, bestPrice, onUpdated, onDeleted }) {
   const [editing,  setEditing]  = useState(false);
-  const [grade,    setGrade]    = useState(collectionItem.grade    || "Raw");
-  const [cond,     setCond]     = useState(collectionItem.condition|| "NM");
+  const [cond,     setCond]     = useState(collectionItem.condition || "NM");
   const [purchase, setPurchase] = useState(collectionItem.purchase_price || "");
-  const [notes,    setNotes]    = useState(collectionItem.notes    || "");
+  const [notes,    setNotes]    = useState(collectionItem.notes || "");
   const [saving,   setSaving]   = useState(false);
   const [showDel,  setShowDel]  = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -70,13 +74,11 @@ function MyCopyPanel({ collectionItem, bestPrice, onUpdated, onDeleted }) {
   const hasCost      = collectionItem.purchase_price > 0;
   const gain         = currentPrice && hasCost ? currentPrice - collectionItem.purchase_price : null;
   const gainPct      = gain !== null ? ((gain / collectionItem.purchase_price) * 100).toFixed(1) : null;
-  const gradeChanged = grade !== collectionItem.grade;
 
   const handleSave = async () => {
     setSaving(true);
-    const updates = { grade, condition: cond, notes };
+    const updates = { condition: cond, notes };
     if (purchase !== "") updates.purchase_price = parseFloat(purchase);
-    if (gradeChanged) updates.current_price = null; // trigger price refresh
     await updateCard(collectionItem.id, updates);
     setSaving(false);
     setEditing(false);
@@ -93,7 +95,8 @@ function MyCopyPanel({ collectionItem, bestPrice, onUpdated, onDeleted }) {
   return (
     <Panel accent="var(--accent-green)" style={{ marginBottom:20 }}>
       <div style={{ padding:"14px 16px" }}>
-        {/* Header row */}
+
+        {/* Header */}
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
             <div style={{ width:8, height:8, borderRadius:"50%", background:"var(--accent-green)", boxShadow:"0 0 6px #22c55e" }} />
@@ -110,10 +113,9 @@ function MyCopyPanel({ collectionItem, bestPrice, onUpdated, onDeleted }) {
         </div>
 
         {!editing ? (
-          /* ── View mode ── */
           <div>
-            {/* Stats row */}
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, marginBottom: (gain !== null || collectionItem.notes) ? 12 : 0 }}>
+            {/* Stats row — grade comes from collectionItem, updated by tapping tabs */}
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, marginBottom: gain !== null || collectionItem.notes ? 12 : 0 }}>
               {[
                 { label:"Grade",     value: collectionItem.grade || "Raw" },
                 { label:"Condition", value: collectionItem.condition || "—" },
@@ -122,27 +124,26 @@ function MyCopyPanel({ collectionItem, bestPrice, onUpdated, onDeleted }) {
               ].map(({ label, value }) => (
                 <div key={label} style={{ background:"var(--bg-base)", borderRadius:8, padding:"10px 12px", border:"1px solid var(--border-dim)" }}>
                   <SectionLabel style={{ marginBottom:4 }}>{label}</SectionLabel>
-                  <div style={{ fontSize:13, fontWeight:600, color: label === "Value" ? "var(--accent-gold)" : "var(--text-primary)", fontFamily: label === "Value" || label === "Paid" ? "var(--font-mono)" : "inherit" }}>{value}</div>
+                  <div style={{ fontSize:13, fontWeight:600, color: label==="Value" ? "var(--accent-gold)" : "var(--text-primary)", fontFamily: label==="Value"||label==="Paid" ? "var(--font-mono)" : "inherit" }}>{value}</div>
                 </div>
               ))}
             </div>
 
             {/* Gain/loss */}
             {gain !== null && (
-              <div style={{ padding:"10px 12px", borderRadius:8, background: gain >= 0 ? "#052e16" : "#450a0a", border:`1px solid ${gain >= 0 ? "#22c55e33" : "#7f1d1d33"}`, marginBottom: collectionItem.notes ? 10 : 0 }}>
-                <div style={{ fontSize:12, color: gain >= 0 ? "#4ade80" : "#f87171", fontFamily:"var(--font-mono)", fontWeight:600 }}>
-                  {gain >= 0 ? "▲" : "▼"} {gain >= 0 ? "+" : ""}{fmtFull(gain)} ({gain >= 0 ? "+" : ""}{gainPct}%) since purchase
+              <div style={{ padding:"10px 12px", borderRadius:8, background: gain>=0?"#052e16":"#450a0a", border:`1px solid ${gain>=0?"#22c55e33":"#7f1d1d33"}`, marginBottom: collectionItem.notes ? 10 : 0 }}>
+                <div style={{ fontSize:12, color: gain>=0?"#4ade80":"#f87171", fontFamily:"var(--font-mono)", fontWeight:600 }}>
+                  {gain>=0?"▲":"▼"} {gain>=0?"+":""}{fmtFull(gain)} ({gain>=0?"+":""}{gainPct}%) since purchase
                 </div>
               </div>
             )}
 
-            {/* Notes */}
             {collectionItem.notes && (
               <div style={{ fontSize:11, color:"var(--text-muted)", fontStyle:"italic", marginTop:8 }}>"{collectionItem.notes}"</div>
             )}
 
-            {/* Variant details */}
-            <div style={{ display:"flex", gap:6, marginTop:10, flexWrap:"wrap" }}>
+            {/* Variant / meta tags */}
+            <div style={{ display:"flex", gap:6, marginTop:10, flexWrap:"wrap", alignItems:"center" }}>
               {collectionItem.print_variant && collectionItem.print_variant !== "unlimited" && (
                 <span style={{ fontSize:9, padding:"2px 7px", borderRadius:3, background:"#2a1e00", border:"1px solid #92400e", color:"#fbbf24", fontFamily:"var(--font-mono)" }}>
                   {collectionItem.print_variant === "1st_edition" ? "1st Edition" : collectionItem.print_variant}
@@ -164,30 +165,20 @@ function MyCopyPanel({ collectionItem, bestPrice, onUpdated, onDeleted }) {
                 </span>
               )}
             </div>
+
+            {/* Hint that grade tabs above update this */}
+            <div style={{ marginTop:10, fontSize:10, color:"var(--text-dim)", fontFamily:"var(--font-mono)" }}>
+              Tap the grade buttons above to update your copy's grade instantly
+            </div>
           </div>
         ) : (
-          /* ── Edit mode ── */
+          /* Edit mode — NO grade row, that's handled by the tabs */
           <div>
-            {gradeChanged && (
-              <div style={{ padding:"8px 12px", background:"#0a1a00", border:"1px solid #22c55e33", borderRadius:6, fontSize:11, color:"#4ade80", marginBottom:12 }}>
-                ✦ Grade changed — price will refresh automatically. Great for when a card comes back from grading!
-              </div>
-            )}
-
-            <div style={{ marginBottom:14 }}>
-              <SectionLabel style={{ marginBottom:8 }}>Grade</SectionLabel>
-              <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-                {GRADE_OPTIONS.map(g => (
-                  <button key={g} onClick={() => setGrade(g)} style={{ padding:"6px 11px", borderRadius:6, fontSize:11, cursor:"pointer", border: grade===g ? "1px solid var(--accent-blue)" : "1px solid var(--border)", background: grade===g ? "#1e3a5f" : "transparent", color: grade===g ? "#93c5fd" : "var(--text-muted)" }}>{g}</button>
-                ))}
-              </div>
-            </div>
-
             <div style={{ marginBottom:14 }}>
               <SectionLabel style={{ marginBottom:8 }}>Condition</SectionLabel>
               <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
                 {COND_OPTIONS.map(c => (
-                  <button key={c} onClick={() => setCond(c)} style={{ padding:"6px 11px", borderRadius:6, fontSize:11, cursor:"pointer", border: cond===c ? "1px solid var(--accent-amber)" : "1px solid var(--border)", background: cond===c ? "#2a1e00" : "transparent", color: cond===c ? "var(--accent-gold)" : "var(--text-muted)" }}>{c}</button>
+                  <button key={c} onClick={() => setCond(c)} style={{ padding:"6px 11px", borderRadius:6, fontSize:11, cursor:"pointer", border: cond===c?"1px solid var(--accent-amber)":"1px solid var(--border)", background: cond===c?"#2a1e00":"transparent", color: cond===c?"var(--accent-gold)":"var(--text-muted)" }}>{c}</button>
                 ))}
               </div>
             </div>
@@ -205,7 +196,7 @@ function MyCopyPanel({ collectionItem, bestPrice, onUpdated, onDeleted }) {
               </div>
             </div>
 
-            <button onClick={handleSave} disabled={saving} style={{ width:"100%", padding:"12px", borderRadius:8, border:"none", background:"linear-gradient(135deg,#22c55e,#16a34a)", color:"#000", cursor:"pointer", fontSize:11, fontWeight:700, fontFamily:"var(--font-pixel)", opacity: saving ? 0.7 : 1 }}>
+            <button onClick={handleSave} disabled={saving} style={{ width:"100%", padding:"12px", borderRadius:8, border:"none", background:"linear-gradient(135deg,#22c55e,#16a34a)", color:"#000", cursor:"pointer", fontSize:11, fontWeight:700, fontFamily:"var(--font-pixel)", opacity: saving?0.7:1 }}>
               {saving ? "SAVING..." : "SAVE CHANGES"}
             </button>
           </div>
@@ -236,6 +227,9 @@ function MyCopyPanel({ collectionItem, bestPrice, onUpdated, onDeleted }) {
   );
 }
 
+/* ─────────────────────────────────────
+   MAIN
+───────────────────────────────────── */
 export default function CardDetail() {
   const { id }           = useParams();
   const router           = useRouter();
@@ -244,12 +238,13 @@ export default function CardDetail() {
   const [condition,      setCondition]      = useState("Raw");
   const [tab,            setTab]            = useState("ebay");
   const [adding,         setAdding]         = useState(false);
-  const [collectionItem, setCollectionItem] = useState(null); // null = not in collection
+  const [collectionItem, setCollectionItem] = useState(null);
   const [showAddForm,    setShowAddForm]    = useState(false);
   const [addGrade,       setAddGrade]       = useState("Raw");
   const [addCond,        setAddCond]        = useState("NM");
   const [addPrice,       setAddPrice]       = useState("");
   const [chartRange,     setChartRange]     = useState("6mo");
+  const [gradeUpdating,  setGradeUpdating]  = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -274,6 +269,8 @@ export default function CardDetail() {
     getCollection().then(items => {
       const found = items.find(i => i.card_id === card.id);
       setCollectionItem(found || null);
+      /* Sync condition tab to owned grade by default */
+      if (found?.grade) setCondition(found.grade);
     });
   }, [card]);
 
@@ -284,7 +281,7 @@ export default function CardDetail() {
     </div>
   );
 
-  const typeColor = card.types?.[0] === "Fire" ? "#ef4444"
+  const typeColor = card.types?.[0] === "Fire"      ? "#ef4444"
     : card.types?.[0] === "Water"     ? "#3b82f6"
     : card.types?.[0] === "Grass"     ? "#22c55e"
     : card.types?.[0] === "Psychic"   ? "#8b5cf6"
@@ -299,10 +296,21 @@ export default function CardDetail() {
   const ebayHigh = prices.length ? Math.max(...prices) : null;
   const ebayLow  = prices.length ? Math.min(...prices) : null;
 
-  const tcgPrice  = getTcgPrice(card);
-  const cmPrice   = card.cardmarket?.prices?.averageSellPrice || null;
-  const bestPrice = ebayAvg || tcgPrice || cmPrice || null;
+  const tcgPrice    = getTcgPrice(card);
+  const cmPrice     = card.cardmarket?.prices?.averageSellPrice || null;
+  const bestPrice   = ebayAvg || tcgPrice || cmPrice || null;
   const priceSource = ebayAvg ? "eBay avg" : tcgPrice ? "TCGplayer" : cmPrice ? "CardMarket" : null;
+
+  /* ── Tap grade tab: update price view AND collection grade if owned ── */
+  const handleGradeTab = async (g) => {
+    setCondition(g);
+    if (!collectionItem || collectionItem.grade === g) return;
+    setGradeUpdating(true);
+    const updates = { grade: g, current_price: null }; // null triggers price refresh
+    await updateCard(collectionItem.id, updates);
+    setCollectionItem(prev => ({ ...prev, ...updates }));
+    setGradeUpdating(false);
+  };
 
   const handleAdd = async () => {
     if (!card) return;
@@ -379,15 +387,45 @@ export default function CardDetail() {
               </div>
             )}
 
-            <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:16 }}>
-              {PRICE_CONDITIONS.map(c => (
-                <button key={c} onClick={() => setCondition(c)} style={{ padding:"5px 12px", borderRadius:7, fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:"var(--font-mono)", border: condition===c?"1px solid var(--accent-blue)":"1px solid var(--border)", background: condition===c?"#1e3a5f":"transparent", color: condition===c?"#93c5fd":"var(--text-muted)", transition:"all .15s" }}>{c}</button>
-              ))}
+            {/* Grade tabs — dual purpose when owned */}
+            <div style={{ marginBottom: collectionItem ? 8 : 16 }}>
+              <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                {PRICE_CONDITIONS.map(c => {
+                  const isOwned = collectionItem?.grade === c;
+                  const isActive = condition === c;
+                  return (
+                    <button key={c} onClick={() => handleGradeTab(c)} style={{
+                      padding:"5px 12px", borderRadius:7, fontSize:11, fontWeight:600, cursor:"pointer",
+                      fontFamily:"var(--font-mono)",
+                      border: isOwned ? "2px solid var(--accent-green)"
+                        : isActive ? "1px solid var(--accent-blue)"
+                        : "1px solid var(--border)",
+                      background: isOwned ? "#052e16"
+                        : isActive ? "#1e3a5f"
+                        : "transparent",
+                      color: isOwned ? "#4ade80"
+                        : isActive ? "#93c5fd"
+                        : "var(--text-muted)",
+                      transition:"all .15s",
+                      position:"relative",
+                    }}>
+                      {c}
+                      {isOwned && gradeUpdating && <span style={{ marginLeft:4, fontSize:9 }}>...</span>}
+                      {isOwned && !gradeUpdating && <span style={{ marginLeft:4, fontSize:9 }}>✓</span>}
+                    </button>
+                  );
+                })}
+              </div>
+              {collectionItem && (
+                <div style={{ fontSize:10, color:"var(--text-dim)", fontFamily:"var(--font-mono)", marginTop:5 }}>
+                  Green = your copy's grade · tap to update grade or filter price view
+                </div>
+              )}
             </div>
 
-            {/* CTA — only show add button if NOT in collection */}
+            {/* Add button — only if not in collection */}
             {!collectionItem && (
-              <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
+              <div style={{ display:"flex", gap:10, flexWrap:"wrap", marginTop:8 }}>
                 <Button variant="primary" onClick={() => setShowAddForm(!showAddForm)} style={{ fontSize:10 }}>
                   {showAddForm ? "Cancel" : "+ ADD TO COLLECTION"}
                 </Button>
@@ -438,13 +476,13 @@ export default function CardDetail() {
           </div>
         </div>
 
-        {/* ── MY COPY PANEL — appears when in collection ── */}
+        {/* My Copy Panel */}
         {collectionItem && (
           <MyCopyPanel
             collectionItem={collectionItem}
             bestPrice={bestPrice}
             onUpdated={(updated) => setCollectionItem(updated)}
-            onDeleted={() => { setCollectionItem(null); }}
+            onDeleted={() => setCollectionItem(null)}
           />
         )}
 
@@ -457,13 +495,13 @@ export default function CardDetail() {
             { label:"TCGplayer",       value:tcgPrice,  sub:"market price",                  accent:false, dot:"#3b82f6" },
             { label:"CardMarket",      value:cmPrice,   sub:"avg sell price",                accent:false, dot:"#a855f7" },
           ].map(({ label, value, sub, accent, dot }) => (
-            <Panel key={label} accent={accent ? "var(--accent-amber)" : null} style={{ padding:"14px" }}>
+            <Panel key={label} accent={accent?"var(--accent-amber)":null} style={{ padding:"14px" }}>
               <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom:8 }}>
                 <div style={{ width:6, height:6, borderRadius:"50%", background:dot, flexShrink:0 }} />
                 <SectionLabel>{label}</SectionLabel>
               </div>
               {value != null
-                ? <div style={{ fontFamily:"var(--font-mono)", fontSize:18, fontWeight:700, color: accent ? "var(--accent-green)" : "var(--text-primary)" }}>{fmtFull(value)}</div>
+                ? <div style={{ fontFamily:"var(--font-mono)", fontSize:18, fontWeight:700, color: accent?"var(--accent-green)":"var(--text-primary)" }}>{fmtFull(value)}</div>
                 : <div style={{ fontFamily:"var(--font-mono)", fontSize:12, color:"var(--text-dim)" }}>—</div>
               }
               {sub && <div style={{ fontSize:11, color:"var(--text-dim)", marginTop:4 }}>{sub}</div>}
