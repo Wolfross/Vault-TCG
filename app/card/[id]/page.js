@@ -43,6 +43,18 @@ function getEra(date) {
   return "20s";
 }
 
+/* ── Best available price from a card object (TCGplayer data) ── */
+function getTcgPrice(card) {
+  const p = card?.tcgplayer?.prices;
+  if (!p) return null;
+  return p.holofoil?.market
+    || p.normal?.market
+    || p.reverseHolofoil?.market
+    || p["1stEditionHolofoil"]?.market
+    || p.unlimitedHolofoil?.market
+    || null;
+}
+
 export default function CardDetail() {
   const { id }         = useParams();
   const [card,         setCard]         = useState(null);
@@ -83,34 +95,6 @@ export default function CardDetail() {
     });
   }, [card]);
 
-  const handleAdd = async () => {
-    if (!card) return;
-    setAdding(true);
-    await addCard({
-      card_id:        card.id,
-      name:           card.name,
-      set_name:       card.set?.name,
-      set_id:         card.set?.id,
-      number:         card.number,
-      image_url:      card.images?.small,
-      rarity:         card.rarity,
-      condition:      addCond,
-      grade:          addGrade,
-      current_price:  ebayAvg || 0,
-      purchase_price: addPrice ? parseFloat(addPrice) : null,
-      holo:           card.rarity?.toLowerCase().includes("holo"),
-      flagged:        false,
-      print_variant:  "unlimited",
-      language:       "en",
-      quantity:       1,
-      era:            getEra(card.set?.releaseDate),
-    });
-    setAdding(false);
-    setAdded(true);
-    setInCollection(true);
-    setShowAddForm(false);
-  };
-
   if (!card) return (
     <div style={{ display:"flex", justifyContent:"center", alignItems:"center", height:"70vh", flexDirection:"column", gap:12 }}>
       <Spinner size={32} />
@@ -132,6 +116,44 @@ export default function CardDetail() {
   const ebayAvg  = prices.length ? Math.round(prices.reduce((a,b)=>a+b,0)/prices.length) : null;
   const ebayHigh = prices.length ? Math.max(...prices) : null;
   const ebayLow  = prices.length ? Math.min(...prices) : null;
+
+  /* ── Price fallback chain: eBay sold avg → TCGplayer → CardMarket → null ── */
+  const tcgPrice = getTcgPrice(card);
+  const cmPrice  = card.cardmarket?.prices?.averageSellPrice || null;
+  const bestPrice = ebayAvg || tcgPrice || cmPrice || null;
+  const priceSource = ebayAvg ? "eBay avg"
+    : tcgPrice ? "TCGplayer"
+    : cmPrice  ? "CardMarket"
+    : null;
+
+  const handleAdd = async () => {
+    if (!card) return;
+    setAdding(true);
+    await addCard({
+      card_id:        card.id,
+      name:           card.name,
+      set_name:       card.set?.name,
+      set_id:         card.set?.id,
+      number:         card.number,
+      image_url:      card.images?.small,
+      rarity:         card.rarity,
+      condition:      addCond,
+      grade:          addGrade,
+      /* Use best available price — never save zero */
+      current_price:  bestPrice,
+      purchase_price: addPrice ? parseFloat(addPrice) : null,
+      holo:           card.rarity?.toLowerCase().includes("holo"),
+      flagged:        false,
+      print_variant:  "unlimited",
+      language:       "en",
+      quantity:       1,
+      era:            getEra(card.set?.releaseDate),
+    });
+    setAdding(false);
+    setAdded(true);
+    setInCollection(true);
+    setShowAddForm(false);
+  };
 
   return (
     <div style={{ background:"var(--bg-base)", minHeight:"100vh", padding:"20px 24px 60px" }}>
@@ -172,6 +194,14 @@ export default function CardDetail() {
               </div>
             )}
 
+            {/* Best available price banner */}
+            {bestPrice && (
+              <div style={{ marginBottom:16, padding:"10px 14px", background:"#0a1a0a", border:"1px solid #22c55e33", borderRadius:8, display:"flex", alignItems:"center", gap:10 }}>
+                <div style={{ fontFamily:"var(--font-mono)", fontSize:20, fontWeight:700, color:"var(--accent-green)" }}>{fmtFull(bestPrice)}</div>
+                <div style={{ fontSize:10, color:"var(--text-dim)", fontFamily:"var(--font-mono)" }}>est. market value · {priceSource}</div>
+              </div>
+            )}
+
             <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:16 }}>
               {CONDITIONS.map(c => (
                 <button key={c} onClick={() => setCondition(c)} style={{ padding:"5px 12px", borderRadius:7, fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:"var(--font-mono)", border: condition===c?"1px solid var(--accent-blue)":"1px solid var(--border)", background: condition===c?"#1e3a5f":"transparent", color: condition===c?"#93c5fd":"var(--text-muted)", transition:"all .15s" }}>{c}</button>
@@ -196,6 +226,16 @@ export default function CardDetail() {
             {showAddForm && (
               <div style={{ marginTop:14, background:"var(--bg-card)", border:"1px solid var(--border)", borderRadius:10, padding:"14px" }}>
                 <SectionLabel style={{ marginBottom:10 }}>Quick add</SectionLabel>
+                {bestPrice && (
+                  <div style={{ marginBottom:10, padding:"8px 10px", background:"#0a1a0a", border:"1px solid #22c55e22", borderRadius:6, fontSize:11, color:"var(--text-muted)", fontFamily:"var(--font-mono)" }}>
+                    Will log market value as <span style={{ color:"var(--accent-green)" }}>{fmtFull(bestPrice)}</span> ({priceSource})
+                  </div>
+                )}
+                {!bestPrice && (
+                  <div style={{ marginBottom:10, padding:"8px 10px", background:"#1a0a00", border:"1px solid #92400e44", borderRadius:6, fontSize:11, color:"#fbbf24" }}>
+                    ⚠ No market price found — card will be flagged as unpriced
+                  </div>
+                )}
                 <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:10 }}>
                   <div>
                     <div style={{ fontSize:11, color:"var(--text-muted)", marginBottom:5 }}>Condition</div>
@@ -225,13 +265,14 @@ export default function CardDetail() {
           </div>
         </div>
 
+        {/* Price cards */}
         <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:10, marginBottom:20 }}>
           {[
-            { label:"eBay avg (30d)",  value:ebayAvg,  sub:`${prices.length} sales`,  accent:true,  dot:"#f59e0b" },
-            { label:"eBay high (30d)", value:ebayHigh, sub:"top sale",                accent:false, dot:"#f59e0b" },
-            { label:"eBay low (30d)",  value:ebayLow,  sub:"floor price",             accent:false, dot:"#f59e0b" },
-            { label:"TCGplayer",       value:card.tcgplayer?.prices?.holofoil?.market || card.tcgplayer?.prices?.normal?.market, sub:"market price", accent:false, dot:"#3b82f6" },
-            { label:"CardMarket",      value:card.cardmarket?.prices?.averageSellPrice, sub:"avg sell", accent:false, dot:"#a855f7" },
+            { label:"eBay avg (30d)",  value:ebayAvg,  sub:`${prices.length} sold listings`, accent:true,  dot:"#f59e0b" },
+            { label:"eBay high (30d)", value:ebayHigh, sub:"top sold price",                 accent:false, dot:"#f59e0b" },
+            { label:"eBay low (30d)",  value:ebayLow,  sub:"lowest sold price",              accent:false, dot:"#f59e0b" },
+            { label:"TCGplayer",       value:tcgPrice,  sub:"market price",                  accent:false, dot:"#3b82f6" },
+            { label:"CardMarket",      value:cmPrice,   sub:"avg sell price",                accent:false, dot:"#a855f7" },
           ].map(({ label, value, sub, accent, dot }) => (
             <Panel key={label} accent={accent ? "var(--accent-amber)" : null} style={{ padding:"14px" }}>
               <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom:8 }}>
@@ -247,11 +288,12 @@ export default function CardDetail() {
           ))}
         </div>
 
+        {/* Chart */}
         <Panel style={{ padding:"18px 20px 12px", marginBottom:20 }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
             <div>
               <SectionLabel>Price history · {condition}</SectionLabel>
-              {ebayAvg && <div style={{ fontFamily:"var(--font-pixel)", fontSize:14, color:"var(--accent-gold)", marginTop:4 }}>{fmtFull(ebayAvg)}</div>}
+              {bestPrice && <div style={{ fontFamily:"var(--font-pixel)", fontSize:14, color:"var(--accent-gold)", marginTop:4 }}>{fmtFull(bestPrice)}</div>}
             </div>
             <div style={{ display:"flex", gap:6 }}>
               {["30d","90d","6mo","1yr"].map(r => (
@@ -270,6 +312,7 @@ export default function CardDetail() {
           <div style={{ fontSize:11, color:"var(--text-dim)", marginTop:8 }}>Price history shows mock data — real tracking coming soon.</div>
         </Panel>
 
+        {/* Tabs */}
         <div style={{ display:"flex", gap:0, borderBottom:"1px solid var(--border)", marginBottom:16 }}>
           {[
             { key:"ebay",  label:`eBay Sold (${ebay.items.length})` },
@@ -280,24 +323,25 @@ export default function CardDetail() {
           ))}
         </div>
 
+        {/* eBay tab */}
         {tab === "ebay" && (
           <Panel style={{ overflow:"hidden" }}>
             <div style={{ padding:"12px 16px", borderBottom:"1px solid var(--border-dim)", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
               <div style={{ fontSize:12, color:"var(--text-muted)" }}>
-                eBay sold listings · <span style={{ color:"var(--accent-gold)" }}>{condition}</span>
+                eBay <strong style={{ color:"var(--accent-gold)" }}>sold</strong> listings · {condition}
                 {ebay.source === "mock" && <span style={{ marginLeft:8, fontSize:10, color:"var(--text-dim)", fontFamily:"var(--font-mono)" }}>(demo data — add eBay API key for live)</span>}
               </div>
             </div>
             {ebay.source === "loading" ? (
               <div style={{ padding:32, display:"flex", justifyContent:"center" }}><Spinner /></div>
             ) : ebay.items.length === 0 ? (
-              <div style={{ padding:32, textAlign:"center", color:"var(--text-dim)", fontSize:13 }}>No listings found</div>
+              <div style={{ padding:32, textAlign:"center", color:"var(--text-dim)", fontSize:13 }}>No sold listings found</div>
             ) : (
               <>
                 <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
                   <thead>
                     <tr style={{ borderBottom:"1px solid var(--border-dim)" }}>
-                      {["Date","Title","Cond.","Type","Price"].map(h => (
+                      {["Date","Title","Cond.","Type","Sold for"].map(h => (
                         <th key={h} style={{ padding:"8px 14px", textAlign:"left", color:"var(--text-dim)", fontWeight:500, fontSize:10, textTransform:"uppercase", letterSpacing:"0.05em", fontFamily:"var(--font-mono)" }}>{h}</th>
                       ))}
                     </tr>
@@ -329,7 +373,7 @@ export default function CardDetail() {
                     {ebayHigh && <span>High: <span style={{ color:"#4ade80" }}>{fmtFull(ebayHigh)}</span></span>}
                     {ebayLow  && <span>Low: <span style={{ color:"#f87171" }}>{fmtFull(ebayLow)}</span></span>}
                     {ebay.items[0]?.url && (
-                      <a href={ebay.items[0].url} target="_blank" rel="noopener noreferrer" style={{ marginLeft:"auto", color:"var(--accent-blue)", textDecoration:"none" }}>Search eBay ↗</a>
+                      <a href={ebay.items[0].url} target="_blank" rel="noopener noreferrer" style={{ marginLeft:"auto", color:"var(--accent-blue)", textDecoration:"none" }}>View on eBay ↗</a>
                     )}
                   </div>
                 )}
@@ -338,6 +382,7 @@ export default function CardDetail() {
           </Panel>
         )}
 
+        {/* Stats tab */}
         {tab === "stats" && (
           <Panel style={{ padding:20 }}>
             <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:16 }}>
@@ -372,6 +417,7 @@ export default function CardDetail() {
           </Panel>
         )}
 
+        {/* Other printings tab */}
         {tab === "sets" && (
           <Panel style={{ padding:20 }}>
             <div style={{ fontSize:13, color:"var(--text-muted)", marginBottom:16 }}>
