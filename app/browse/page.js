@@ -3,27 +3,132 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { Panel, SectionLabel, MonoText, PixelText, HoloBadge, EraTag, Spinner, EmptyState } from "@/components/shared/ui";
 
-/* ─── Energy type metadata ───────────────────────────────────────
-   Official energy symbol images from the Pokémon TCG API CDN.
-   These are freely served — same source the API uses for card data.
+/* ─── SVG Energy Symbols ─────────────────────────────────────────
+   Hand-crafted SVGs matching the Pokémon TCG energy symbol aesthetic.
+   No external images needed — renders perfectly at any size.
 ─────────────────────────────────────────────────────────────────── */
+function EnergySVG({ type, size = 28 }) {
+  const s = size;
+  const symbols = {
+    Fire: (
+      <svg width={s} height={s} viewBox="0 0 32 32">
+        <circle cx="16" cy="16" r="15" fill="#ef4444" />
+        <circle cx="16" cy="16" r="12" fill="#dc2626" />
+        <path d="M16 6 C14 10 10 11 10 15 C10 19 13 21 16 26 C19 21 22 19 22 15 C22 11 18 10 16 6Z" fill="#fca5a5" />
+        <path d="M16 12 C15 14 13 15 13 17.5 C13 19.5 14.5 20.5 16 23 C17.5 20.5 19 19.5 19 17.5 C19 15 17 14 16 12Z" fill="#fff" />
+      </svg>
+    ),
+    Water: (
+      <svg width={s} height={s} viewBox="0 0 32 32">
+        <circle cx="16" cy="16" r="15" fill="#3b82f6" />
+        <circle cx="16" cy="16" r="12" fill="#2563eb" />
+        <path d="M16 7 C16 7 9 15 9 19 C9 23 12 26 16 26 C20 26 23 23 23 19 C23 15 16 7 16 7Z" fill="#93c5fd" />
+        <path d="M16 13 C16 13 12 18 12 20.5 C12 22.5 13.8 24 16 24 C18.2 24 20 22.5 20 20.5 C20 18 16 13 16 13Z" fill="#fff" opacity="0.7"/>
+      </svg>
+    ),
+    Grass: (
+      <svg width={s} height={s} viewBox="0 0 32 32">
+        <circle cx="16" cy="16" r="15" fill="#22c55e" />
+        <circle cx="16" cy="16" r="12" fill="#16a34a" />
+        <path d="M16 8 L16 24" stroke="#86efac" strokeWidth="2" strokeLinecap="round"/>
+        <path d="M16 14 C16 14 10 10 8 12 C10 16 16 14 16 14Z" fill="#86efac"/>
+        <path d="M16 18 C16 18 22 14 24 16 C22 20 16 18 16 18Z" fill="#86efac"/>
+        <path d="M16 11 C16 11 12 7 10 8 C11 12 16 11 16 11Z" fill="#bbf7d0"/>
+        <path d="M16 21 C16 21 20 17 22 18 C21 22 16 21 16 21Z" fill="#bbf7d0"/>
+      </svg>
+    ),
+    Lightning: (
+      <svg width={s} height={s} viewBox="0 0 32 32">
+        <circle cx="16" cy="16" r="15" fill="#f59e0b" />
+        <circle cx="16" cy="16" r="12" fill="#d97706" />
+        <polygon points="18,7 11,17 16,17 14,25 21,15 16,15" fill="#fef08a" />
+        <polygon points="18,7 11,17 16,17 14,25 21,15 16,15" fill="#fff" opacity="0.3"/>
+      </svg>
+    ),
+    Psychic: (
+      <svg width={s} height={s} viewBox="0 0 32 32">
+        <circle cx="16" cy="16" r="15" fill="#8b5cf6" />
+        <circle cx="16" cy="16" r="12" fill="#7c3aed" />
+        <circle cx="16" cy="16" r="5" fill="#c4b5fd" />
+        <circle cx="16" cy="16" r="3" fill="#fff" />
+        <circle cx="10" cy="10" r="2.5" fill="#c4b5fd" />
+        <circle cx="22" cy="10" r="2" fill="#c4b5fd" />
+        <circle cx="10" cy="22" r="2" fill="#c4b5fd" />
+        <circle cx="22" cy="22" r="2.5" fill="#c4b5fd" />
+      </svg>
+    ),
+    Darkness: (
+      <svg width={s} height={s} viewBox="0 0 32 32">
+        <circle cx="16" cy="16" r="15" fill="#4c1d95" />
+        <circle cx="16" cy="16" r="12" fill="#3b0764" />
+        <path d="M16 8 C11 8 7 12 7 16 C7 20 10 23.5 14 24.5 C12 22 11 19 12 16.5 C13 14 15 13 16 13 C17 13 18 12.5 18 11 C18 9.5 17 8 16 8Z" fill="#a78bfa"/>
+        <path d="M18 10 C20 11 22 13.5 22 16 C22 20 18.5 23.5 14 24.5 C16 24 20 21 20 16 C20 13 19 11 18 10Z" fill="#7c3aed"/>
+        <circle cx="19" cy="13" r="2" fill="#c4b5fd" opacity="0.6"/>
+      </svg>
+    ),
+    Dragon: (
+      <svg width={s} height={s} viewBox="0 0 32 32">
+        <circle cx="16" cy="16" r="15" fill="#0284c7" />
+        <circle cx="16" cy="16" r="12" fill="#075985" />
+        <path d="M8 12 L16 8 L24 12 L24 20 L16 24 L8 20 Z" fill="none" stroke="#7dd3fc" strokeWidth="1.5"/>
+        <path d="M16 8 L16 24" stroke="#7dd3fc" strokeWidth="1" opacity="0.5"/>
+        <path d="M8 16 L24 16" stroke="#7dd3fc" strokeWidth="1" opacity="0.5"/>
+        <circle cx="16" cy="16" r="3" fill="#38bdf8" />
+        <circle cx="16" cy="16" r="1.5" fill="#fff" />
+      </svg>
+    ),
+    Fighting: (
+      <svg width={s} height={s} viewBox="0 0 32 32">
+        <circle cx="16" cy="16" r="15" fill="#c2410c" />
+        <circle cx="16" cy="16" r="12" fill="#9a3412" />
+        <path d="M11 10 L11 22 L14 22 L14 17 L18 17 L18 22 L21 22 L21 10 L18 10 L18 14 L14 14 L14 10 Z" fill="#fed7aa"/>
+        <path d="M11 10 L11 22 L14 22 L14 17 L18 17 L18 22 L21 22 L21 10 L18 10 L18 14 L14 14 L14 10 Z" fill="#fff" opacity="0.2"/>
+      </svg>
+    ),
+    Metal: (
+      <svg width={s} height={s} viewBox="0 0 32 32">
+        <circle cx="16" cy="16" r="15" fill="#64748b" />
+        <circle cx="16" cy="16" r="12" fill="#475569" />
+        <circle cx="16" cy="16" r="8" fill="none" stroke="#cbd5e1" strokeWidth="2"/>
+        <circle cx="16" cy="16" r="4" fill="#94a3b8" />
+        <circle cx="16" cy="16" r="2" fill="#e2e8f0" />
+        <line x1="16" y1="8" x2="16" y2="10" stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round"/>
+        <line x1="16" y1="22" x2="16" y2="24" stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round"/>
+        <line x1="8" y1="16" x2="10" y2="16" stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round"/>
+        <line x1="22" y1="16" x2="24" y2="16" stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round"/>
+      </svg>
+    ),
+    Colorless: (
+      <svg width={s} height={s} viewBox="0 0 32 32">
+        <circle cx="16" cy="16" r="15" fill="#6b7280" />
+        <circle cx="16" cy="16" r="12" fill="#4b5563" />
+        <circle cx="16" cy="16" r="7" fill="none" stroke="#d1d5db" strokeWidth="1.5"/>
+        <circle cx="16" cy="16" r="3.5" fill="#9ca3af" />
+        <circle cx="16" cy="11" r="1.5" fill="#d1d5db" opacity="0.7"/>
+        <circle cx="20.3" cy="13.5" r="1.5" fill="#d1d5db" opacity="0.7"/>
+        <circle cx="20.3" cy="18.5" r="1.5" fill="#d1d5db" opacity="0.7"/>
+        <circle cx="16" cy="21" r="1.5" fill="#d1d5db" opacity="0.7"/>
+        <circle cx="11.7" cy="18.5" r="1.5" fill="#d1d5db" opacity="0.7"/>
+        <circle cx="11.7" cy="13.5" r="1.5" fill="#d1d5db" opacity="0.7"/>
+      </svg>
+    ),
+  };
+  return symbols[type] || null;
+}
+
 const TYPE_META = {
-  Fire:      { color:"#ef4444", bg:"#3a0a0a", img:"https://images.pokemontcg.io/energies/fire.png"      },
-  Water:     { color:"#3b82f6", bg:"#0a1e3a", img:"https://images.pokemontcg.io/energies/water.png"     },
-  Grass:     { color:"#22c55e", bg:"#0a2a14", img:"https://images.pokemontcg.io/energies/grass.png"     },
-  Lightning: { color:"#f59e0b", bg:"#2a1e00", img:"https://images.pokemontcg.io/energies/lightning.png" },
-  Psychic:   { color:"#8b5cf6", bg:"#1e0a3a", img:"https://images.pokemontcg.io/energies/psychic.png"   },
-  Darkness:  { color:"#7c3aed", bg:"#0f0a1e", img:"https://images.pokemontcg.io/energies/darkness.png"  },
-  Dragon:    { color:"#0ea5e9", bg:"#0a1e2a", img:"https://images.pokemontcg.io/energies/dragon.png"    },
-  Fighting:  { color:"#f97316", bg:"#2a0f00", img:"https://images.pokemontcg.io/energies/fighting.png"  },
-  Metal:     { color:"#9ca3af", bg:"#1a1f2e", img:"https://images.pokemontcg.io/energies/metal.png"     },
-  Colorless: { color:"#6b7280", bg:"#1a1f2e", img:"https://images.pokemontcg.io/energies/colorless.png" },
+  Fire:      { color:"#ef4444", bg:"#3a0a0a" },
+  Water:     { color:"#3b82f6", bg:"#0a1e3a" },
+  Grass:     { color:"#22c55e", bg:"#0a2a14" },
+  Lightning: { color:"#f59e0b", bg:"#2a1e00" },
+  Psychic:   { color:"#8b5cf6", bg:"#1e0a3a" },
+  Darkness:  { color:"#7c3aed", bg:"#0f0a1e" },
+  Dragon:    { color:"#0ea5e9", bg:"#0a1e2a" },
+  Fighting:  { color:"#f97316", bg:"#2a0f00" },
+  Metal:     { color:"#9ca3af", bg:"#1a1f2e" },
+  Colorless: { color:"#6b7280", bg:"#1a1f2e" },
 };
 
-/* ─── Fallback set data with real TCG API set IDs ────────────────
-   Logo/symbol images are fetched live from the API.
-   We keep this list so we control ordering and "hot" flags.
-─────────────────────────────────────────────────────────────────── */
 const SET_CATALOG = [
   { id:"base1",    name:"Base Set",         year:1999, era:"90s", total:102, hot:true  },
   { id:"base2",    name:"Jungle",           year:1999, era:"90s", total:64,  hot:false },
@@ -60,9 +165,7 @@ function useDebounce(value, delay) {
   return debounced;
 }
 
-/* ─── Energy type button with real image ─── */
 function TypeButton({ type, meta, active, onClick }) {
-  const [imgError, setImgError] = useState(false);
   return (
     <button onClick={onClick} style={{
       padding:"12px 8px", borderRadius:10, cursor:"pointer",
@@ -71,71 +174,30 @@ function TypeButton({ type, meta, active, onClick }) {
       display:"flex", flexDirection:"column", alignItems:"center", gap:6,
       transition:"all .15s", flex:1,
     }}
-      onMouseEnter={e => { e.currentTarget.style.borderColor = meta.color; e.currentTarget.style.transform = "scale(1.03)"; }}
-      onMouseLeave={e => { e.currentTarget.style.borderColor = active ? meta.color : meta.color+"44"; e.currentTarget.style.transform = "scale(1)"; }}
+      onMouseEnter={e => { e.currentTarget.style.borderColor=meta.color; e.currentTarget.style.transform="scale(1.03)"; }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor=active?meta.color:meta.color+"44"; e.currentTarget.style.transform="scale(1)"; }}
     >
-      {!imgError ? (
-        <img
-          src={meta.img}
-          alt={type}
-          style={{ width:28, height:28, objectFit:"contain", filter:"drop-shadow(0 0 4px currentColor)" }}
-          onError={() => setImgError(true)}
-        />
-      ) : (
-        /* Fallback if CDN doesn't have the image */
-        <div style={{ width:28, height:28, borderRadius:"50%", background:`${meta.color}44`, border:`1px solid ${meta.color}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, color:meta.color }}>
-          {type[0]}
-        </div>
-      )}
+      <EnergySVG type={type} size={28} />
       <span style={{ fontSize:10, fontWeight:500, color: active ? meta.color : meta.color+"cc" }}>{type}</span>
     </button>
   );
 }
 
-/* ─── Set tile with real logo from API ─── */
 function SetTile({ set, apiData, onClick }) {
   const [logoError, setLogoError] = useState(false);
-  const logo   = apiData?.images?.logo;
-  const symbol = apiData?.images?.symbol;
-  const era    = set.era;
-  const eraC   = ERA_COLOR[era] || "#64748b";
-
+  const logo  = apiData?.images?.logo;
+  const eraC  = ERA_COLOR[set.era] || "#64748b";
   return (
-    <div onClick={onClick} style={{
-      background:"var(--bg-card)", border:`1px solid ${eraC}33`,
-      borderRadius:12, overflow:"hidden", cursor:"pointer",
-      transition:"all .15s", position:"relative",
-    }}
-      onMouseEnter={e => { e.currentTarget.style.borderColor = eraC+"88"; e.currentTarget.style.transform = "translateY(-2px)"; }}
-      onMouseLeave={e => { e.currentTarget.style.borderColor = eraC+"33"; e.currentTarget.style.transform = "translateY(0)"; }}
-    >
-      {set.hot && (
-        <div style={{ position:"absolute", top:8, right:8, zIndex:2, fontSize:9, fontFamily:"var(--font-mono)", color:"#f59e0b", background:"#2a1e0088", border:"1px solid #f59e0b44", padding:"2px 7px", borderRadius:10 }}>HOT</div>
-      )}
-
-      {/* Logo area */}
-      <div style={{
-        height:90, background:`linear-gradient(135deg, ${eraC}18 0%, var(--bg-base) 100%)`,
-        display:"flex", alignItems:"center", justifyContent:"center",
-        borderBottom:`1px solid ${eraC}22`, padding:"10px 16px", position:"relative",
-      }}>
-        {logo && !logoError ? (
-          <img
-            src={logo}
-            alt={set.name}
-            style={{ maxHeight:60, maxWidth:"90%", objectFit:"contain", filter:`drop-shadow(0 2px 8px ${eraC}66)` }}
-            onError={() => setLogoError(true)}
-          />
-        ) : (
-          /* Fallback — name text if logo fails */
-          <div style={{ textAlign:"center" }}>
-            {symbol && <img src={symbol} alt="" style={{ width:24, height:24, objectFit:"contain", marginBottom:4, opacity:0.8 }} />}
-            <div style={{ fontSize:13, fontWeight:700, color:eraC, textAlign:"center", lineHeight:1.3 }}>{set.name}</div>
-          </div>
-        )}
+    <div onClick={onClick} style={{ background:"var(--bg-card)", border:`1px solid ${eraC}33`, borderRadius:12, overflow:"hidden", cursor:"pointer", transition:"all .15s", position:"relative" }}
+      onMouseEnter={e => { e.currentTarget.style.borderColor=eraC+"88"; e.currentTarget.style.transform="translateY(-2px)"; }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor=eraC+"33"; e.currentTarget.style.transform="translateY(0)"; }}>
+      {set.hot && <div style={{ position:"absolute", top:8, right:8, zIndex:2, fontSize:9, fontFamily:"var(--font-mono)", color:"#f59e0b", background:"#2a1e0088", border:"1px solid #f59e0b44", padding:"2px 7px", borderRadius:10 }}>HOT</div>}
+      <div style={{ height:90, background:`linear-gradient(135deg, ${eraC}18 0%, var(--bg-base) 100%)`, display:"flex", alignItems:"center", justifyContent:"center", borderBottom:`1px solid ${eraC}22`, padding:"10px 16px" }}>
+        {logo && !logoError
+          ? <img src={logo} alt={set.name} style={{ maxHeight:60, maxWidth:"90%", objectFit:"contain", filter:`drop-shadow(0 2px 8px ${eraC}66)` }} onError={() => setLogoError(true)} />
+          : <div style={{ fontSize:13, fontWeight:700, color:eraC, textAlign:"center" }}>{set.name}</div>
+        }
       </div>
-
-      {/* Info row */}
       <div style={{ padding:"10px 12px" }}>
         <div style={{ fontSize:12, fontWeight:600, color:"var(--text-primary)", marginBottom:2, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{set.name}</div>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
@@ -147,29 +209,24 @@ function SetTile({ set, apiData, onClick }) {
   );
 }
 
-/* ─── Browse card grid item with real image ─── */
-function BrowseCard({ card, onClick }) {
+function BrowseCard({ card }) {
   const typeColor = card.types?.[0] ? (TYPE_META[card.types[0]]?.color || "#64748b") : "#64748b";
-  const isHolo    = card.rarity?.toLowerCase().includes("holo") || card.rarity?.toLowerCase().includes("rare");
-  const era       = card.set?.releaseDate?.slice(0,4) < "2003" ? "90s"
-    : card.set?.releaseDate?.slice(0,4) < "2010" ? "00s"
-    : card.set?.releaseDate?.slice(0,4) < "2020" ? "10s" : "20s";
-
+  const isHolo = card.rarity?.toLowerCase().includes("holo") || card.rarity?.toLowerCase().includes("rare");
+  const year = card.set?.releaseDate?.slice(0,4);
+  const era  = year < "2003" ? "90s" : year < "2010" ? "00s" : year < "2020" ? "10s" : "20s";
   return (
     <Link href={`/card/${card.id}`} style={{ textDecoration:"none", display:"block" }}>
       <div style={{ background:"var(--bg-card)", border:"1px solid var(--border)", borderRadius:10, overflow:"hidden", transition:"all .15s" }}
         onMouseEnter={e => { e.currentTarget.style.borderColor=typeColor+"66"; e.currentTarget.style.transform="translateY(-2px)"; }}
         onMouseLeave={e => { e.currentTarget.style.borderColor="var(--border)"; e.currentTarget.style.transform="translateY(0)"; }}>
-        {/* Card image */}
-        <div style={{ height:140, background: card.images?.small ? "var(--bg-base)" : `linear-gradient(135deg, ${typeColor}22, var(--bg-base))`, display:"flex", alignItems:"center", justifyContent:"center", borderBottom:"1px solid var(--border-dim)", position:"relative" }}>
+        <div style={{ height:140, background:"var(--bg-base)", display:"flex", alignItems:"center", justifyContent:"center", borderBottom:"1px solid var(--border-dim)", position:"relative" }}>
           {card.images?.small
             ? <img src={card.images.small} alt={card.name} style={{ height:130, objectFit:"contain" }} />
             : <div style={{ fontSize:11, color:"var(--text-dim)", fontFamily:"var(--font-mono)" }}>NO IMAGE</div>
           }
-          {/* Type icon overlay */}
           {card.types?.[0] && TYPE_META[card.types[0]] && (
-            <div style={{ position:"absolute", top:5, left:5, width:20, height:20 }}>
-              <img src={TYPE_META[card.types[0]].img} alt={card.types[0]} style={{ width:20, height:20, objectFit:"contain" }} />
+            <div style={{ position:"absolute", top:5, left:5 }}>
+              <EnergySVG type={card.types[0]} size={20} />
             </div>
           )}
           <div style={{ position:"absolute", bottom:4, left:5, display:"flex", gap:3 }}>
@@ -177,7 +234,6 @@ function BrowseCard({ card, onClick }) {
             {isHolo && <HoloBadge />}
           </div>
         </div>
-        {/* Info */}
         <div style={{ padding:"8px 10px" }}>
           <div style={{ fontSize:12, fontWeight:600, color:"var(--text-primary)", marginBottom:1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{card.name}</div>
           <div style={{ fontSize:10, color:"var(--text-dim)", marginBottom:4, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{card.set?.name} · #{card.number}</div>
@@ -188,24 +244,19 @@ function BrowseCard({ card, onClick }) {
   );
 }
 
-/* ─── List row ─── */
 function BrowseRow({ card, last }) {
   const typeColor = card.types?.[0] ? (TYPE_META[card.types[0]]?.color || "#64748b") : "#64748b";
-  const typeMeta  = card.types?.[0] ? TYPE_META[card.types[0]] : null;
   return (
     <Link href={`/card/${card.id}`} style={{ textDecoration:"none", display:"block" }}>
-      <div style={{ display:"grid", gridTemplateColumns:"40px 2fr 1fr 1fr 80px", gap:12, padding:"10px 16px", borderBottom: last?"none":"1px solid var(--border-dim)", alignItems:"center", transition:"background .12s" }}
+      <div style={{ display:"grid", gridTemplateColumns:"40px 2fr 1fr 1fr 90px", gap:12, padding:"10px 16px", borderBottom: last?"none":"1px solid var(--border-dim)", alignItems:"center", transition:"background .12s" }}
         onMouseEnter={e => e.currentTarget.style.background="var(--bg-card)"}
         onMouseLeave={e => e.currentTarget.style.background="transparent"}>
-        {/* Type icon or card image */}
         <div style={{ width:36, height:48, borderRadius:4, overflow:"hidden", flexShrink:0 }}>
           {card.images?.small
             ? <img src={card.images.small} alt={card.name} style={{ width:36, height:48, objectFit:"cover" }} />
-            : typeMeta
-              ? <div style={{ width:36, height:48, background:typeMeta.bg, display:"flex", alignItems:"center", justifyContent:"center" }}>
-                  <img src={typeMeta.img} alt="" style={{ width:22, height:22, objectFit:"contain" }} />
-                </div>
-              : <div style={{ width:36, height:48, background:"var(--bg-base)", border:"1px solid var(--border)", borderRadius:4 }}/>
+            : <div style={{ width:36, height:48, background:"var(--bg-base)", border:"1px solid var(--border)", borderRadius:4, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                {card.types?.[0] && <EnergySVG type={card.types[0]} size={22} />}
+              </div>
           }
         </div>
         <div>
@@ -214,8 +265,8 @@ function BrowseRow({ card, last }) {
         </div>
         <div style={{ fontSize:11, color:"var(--text-muted)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{card.set?.name}</div>
         <div style={{ fontSize:10, color:typeColor, fontFamily:"var(--font-mono)" }}>{card.rarity}</div>
-        <div style={{ display:"flex", alignItems:"center", gap:4 }}>
-          {typeMeta && <img src={typeMeta.img} alt={card.types[0]} style={{ width:16, height:16, objectFit:"contain" }} />}
+        <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+          {card.types?.[0] && TYPE_META[card.types[0]] && <EnergySVG type={card.types[0]} size={16} />}
           <span style={{ fontSize:10, color:typeColor }}>{card.types?.join(", ")}</span>
         </div>
       </div>
@@ -231,6 +282,7 @@ export default function BrowsePage() {
   const [cards,      setCards]      = useState([]);
   const [loading,    setLoading]    = useState(false);
   const [setsLoading,setSetsLoading]= useState(true);
+  const [loadingMore,setLoadingMore]= useState(false);
   const [mode,       setMode]       = useState("home");
   const [activeSet,  setActiveSet]  = useState(null);
   const [view,       setView]       = useState("grid");
@@ -238,24 +290,19 @@ export default function BrowsePage() {
   const [filterType, setFilterType] = useState("All");
   const [sortBy,     setSortBy]     = useState("number");
   const [recent,     setRecent]     = useState([]);
-  const [setApiData, setSetApiData] = useState({}); // id → {images:{logo,symbol}}
-  const debouncedQ   = useDebounce(query, 400);
-  const abortRef     = useRef(null);
+  const [setApiData, setSetApiData] = useState({});
+  const [totalCount, setTotalCount] = useState(0);
+  const debouncedQ = useDebounce(query, 400);
+  const abortRef   = useRef(null);
 
-  /* Load set images from API on mount */
   useEffect(() => {
     fetch("/api/sets")
       .then(r => r.json())
-      .then(d => {
-        const map = {};
-        (d.data || []).forEach(s => { map[s.id] = s; });
-        setSetApiData(map);
-      })
+      .then(d => { const map = {}; (d.data||[]).forEach(s => { map[s.id]=s; }); setSetApiData(map); })
       .catch(() => {})
       .finally(() => setSetsLoading(false));
   }, []);
 
-  /* Recent searches */
   useEffect(() => {
     const saved = localStorage.getItem("vault_recent_searches");
     if (saved) setRecent(JSON.parse(saved));
@@ -267,17 +314,43 @@ export default function BrowsePage() {
     localStorage.setItem("vault_recent_searches", JSON.stringify(next));
   };
 
-  /* Fetch cards */
-  const fetchCards = (q, setId) => {
+  /* Fetch ALL cards in a set using pagination */
+  const fetchSetCards = async (setId) => {
+    setLoading(true);
+    setCards([]);
+    setTotalCount(0);
+    let page = 1;
+    let allCards = [];
+    let hasMore = true;
+
+    while (hasMore) {
+      if (page > 1) setLoadingMore(true);
+      try {
+        const res  = await fetch(`/api/cards?set=${setId}&pageSize=250&page=${page}`);
+        const data = await res.json();
+        const batch = data.data || [];
+        allCards = [...allCards, ...batch];
+        setCards([...allCards]);
+        setTotalCount(data.totalCount || allCards.length);
+        /* If we got fewer than 250, we're done */
+        hasMore = batch.length === 250;
+        page++;
+      } catch {
+        hasMore = false;
+      }
+    }
+    setLoading(false);
+    setLoadingMore(false);
+  };
+
+  /* Fetch cards for search */
+  const fetchSearchCards = (q) => {
     if (abortRef.current) abortRef.current.abort();
     abortRef.current = new AbortController();
     setLoading(true);
-    let url = "/api/cards?pageSize=32";
-    if (q)     url += `&q=name:${encodeURIComponent(q)}*`;
-    if (setId) url += `&set=${setId}`;
-    fetch(url, { signal: abortRef.current.signal })
+    fetch(`/api/cards?pageSize=60&q=name:${encodeURIComponent(q)}*`, { signal: abortRef.current.signal })
       .then(r => r.json())
-      .then(d => { setCards(d.data || []); setLoading(false); })
+      .then(d => { setCards(d.data || []); setTotalCount(d.totalCount || 0); setLoading(false); })
       .catch(e => { if (e.name !== "AbortError") { setCards([]); setLoading(false); } });
   };
 
@@ -285,20 +358,19 @@ export default function BrowsePage() {
     if (!debouncedQ.trim()) { if (mode === "results") { setMode("home"); setCards([]); } return; }
     setMode("results");
     saveRecent(debouncedQ.trim());
-    fetchCards(debouncedQ.trim(), null);
+    fetchSearchCards(debouncedQ.trim());
   }, [debouncedQ]);
 
   const openSet = (set) => {
     setActiveSet(set);
     setMode("set");
     setQuery("");
-    setCards([]);
-    fetchCards(null, set.id);
+    fetchSetCards(set.id);
   };
 
   const clearAll = () => {
     setQuery(""); setMode("home"); setActiveSet(null); setCards([]);
-    setFilterEra("All"); setFilterType("All");
+    setFilterEra("All"); setFilterType("All"); setTotalCount(0);
   };
 
   const filteredSets = SET_CATALOG.filter(s => filterEra === "All" || s.era === filterEra);
@@ -318,15 +390,9 @@ export default function BrowsePage() {
       <div style={{ background:"var(--bg-nav)", borderBottom:"1px solid var(--border)", padding:"12px 24px", position:"sticky", top:52, zIndex:90 }}>
         <div style={{ maxWidth:1100, margin:"0 auto", position:"relative" }}>
           <span style={{ position:"absolute", left:14, top:"50%", transform:"translateY(-50%)", color:"var(--text-muted)", fontSize:16, pointerEvents:"none" }}>⌕</span>
-          <input
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            placeholder="Search any card, set, or type..."
-            style={{ width:"100%", height:44, paddingLeft:42, paddingRight:query?40:16, borderRadius:10, fontSize:14, border:`1px solid ${query?"var(--accent-blue)":"var(--border)"}`, transition:"border-color .2s" }}
-          />
-          {query && (
-            <button onClick={clearAll} style={{ position:"absolute", right:12, top:"50%", transform:"translateY(-50%)", width:24, height:24, borderRadius:"50%", background:"var(--border)", border:"none", color:"var(--text-muted)", cursor:"pointer", fontSize:12 }}>✕</button>
-          )}
+          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search any card, set, or type..."
+            style={{ width:"100%", height:44, paddingLeft:42, paddingRight:query?40:16, borderRadius:10, fontSize:14, border:`1px solid ${query?"var(--accent-blue)":"var(--border)"}`, transition:"border-color .2s" }} />
+          {query && <button onClick={clearAll} style={{ position:"absolute", right:12, top:"50%", transform:"translateY(-50%)", width:24, height:24, borderRadius:"50%", background:"var(--border)", border:"none", color:"var(--text-muted)", cursor:"pointer", fontSize:12 }}>✕</button>}
         </div>
       </div>
 
@@ -335,7 +401,6 @@ export default function BrowsePage() {
         {/* ── HOME ── */}
         {mode === "home" && (
           <div>
-            {/* Recent searches */}
             {recent.length > 0 && (
               <div style={{ marginBottom:28 }}>
                 <div style={{ display:"flex", justifyContent:"space-between", marginBottom:10 }}>
@@ -354,23 +419,18 @@ export default function BrowsePage() {
               </div>
             )}
 
-            {/* Browse by type — real energy images */}
+            {/* Energy type buttons with SVG symbols */}
             <div style={{ marginBottom:32 }}>
               <SectionLabel style={{ display:"block", marginBottom:14 }}>Browse by type</SectionLabel>
               <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:8 }}>
                 {Object.entries(TYPE_META).map(([type, meta]) => (
-                  <TypeButton
-                    key={type}
-                    type={type}
-                    meta={meta}
-                    active={filterType === type}
-                    onClick={() => { setFilterType(filterType === type ? "All" : type); setQuery(type); }}
-                  />
+                  <TypeButton key={type} type={type} meta={meta} active={filterType===type}
+                    onClick={() => { setFilterType(filterType===type?"All":type); setQuery(type); }} />
                 ))}
               </div>
             </div>
 
-            {/* Sets — real logos */}
+            {/* Sets */}
             <div>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
                 <SectionLabel>Browse sets</SectionLabel>
@@ -380,18 +440,12 @@ export default function BrowsePage() {
                   ))}
                 </div>
               </div>
-
-              {setsLoading ? (
-                <div style={{ display:"flex", justifyContent:"center", padding:40 }}><Spinner /></div>
-              ) : (
-                <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(200px, 1fr))", gap:12 }}>
-                  {filteredSets.map((set, i) => (
-                    <div key={set.id} style={{ animation:`fadeUp 0.3s ease ${i*0.03}s both` }}>
-                      <SetTile set={set} apiData={setApiData[set.id]} onClick={() => openSet(set)} />
-                    </div>
-                  ))}
-                </div>
-              )}
+              {setsLoading
+                ? <div style={{ display:"flex", justifyContent:"center", padding:40 }}><Spinner /></div>
+                : <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(200px, 1fr))", gap:12 }}>
+                    {filteredSets.map(set => <SetTile key={set.id} set={set} apiData={setApiData[set.id]} onClick={() => openSet(set)} />)}
+                  </div>
+              }
             </div>
           </div>
         )}
@@ -399,35 +453,36 @@ export default function BrowsePage() {
         {/* ── RESULTS / SET ── */}
         {(mode === "results" || mode === "set") && (
           <div>
-            {/* Set header with real logo */}
             {mode === "set" && activeSet && (
               <div style={{ background:`${ERA_COLOR[activeSet.era]||"#64748b"}12`, border:`1px solid ${ERA_COLOR[activeSet.era]||"#64748b"}44`, borderRadius:12, padding:"16px 20px", marginBottom:20, display:"flex", alignItems:"center", gap:16 }}>
-                {setApiData[activeSet.id]?.images?.logo ? (
-                  <img src={setApiData[activeSet.id].images.logo} alt={activeSet.name} style={{ height:50, objectFit:"contain", filter:`drop-shadow(0 2px 8px ${ERA_COLOR[activeSet.era]||"#64748b"}66)` }} />
-                ) : (
-                  <div style={{ fontSize:16, fontWeight:700, color:ERA_COLOR[activeSet.era]||"#64748b" }}>{activeSet.name}</div>
-                )}
+                {setApiData[activeSet.id]?.images?.logo
+                  ? <img src={setApiData[activeSet.id].images.logo} alt={activeSet.name} style={{ height:50, objectFit:"contain", filter:`drop-shadow(0 2px 8px ${ERA_COLOR[activeSet.era]||"#64748b"}66)` }} />
+                  : <div style={{ fontSize:16, fontWeight:700, color:ERA_COLOR[activeSet.era]||"#64748b" }}>{activeSet.name}</div>
+                }
                 <div style={{ flex:1 }}>
                   <div style={{ fontSize:16, fontWeight:700, color:"var(--text-primary)" }}>{activeSet.name}</div>
-                  <div style={{ fontSize:11, color:"var(--text-muted)" }}>{activeSet.year} · {activeSet.total} cards · {activeSet.era} era</div>
+                  <div style={{ fontSize:11, color:"var(--text-muted)" }}>
+                    {activeSet.year} · {loading ? "Loading..." : `${cards.length} of ${activeSet.total} cards`}
+                    {loadingMore && <span style={{ color:"var(--accent-blue)", marginLeft:8 }}>Loading more...</span>}
+                  </div>
                 </div>
                 <button onClick={clearAll} style={{ padding:"6px 12px", borderRadius:6, border:"1px solid var(--border)", background:"transparent", color:"var(--text-muted)", fontSize:11, cursor:"pointer" }}>← Back</button>
               </div>
             )}
 
-            {/* Controls */}
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14, flexWrap:"wrap", gap:8 }}>
               <div style={{ fontSize:12, color:"var(--text-muted)", fontFamily:"var(--font-mono)" }}>
-                {loading ? "Searching..." : `${displayCards.length} cards`}
+                {loading && cards.length === 0 ? "Loading..." : `${displayCards.length} cards`}
+                {loadingMore && <span style={{ color:"var(--accent-blue)", marginLeft:8 }}>· fetching more...</span>}
                 {mode === "results" && query && <span style={{ color:"var(--accent-blue)" }}> · "{query}"</span>}
               </div>
               <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
-                {/* Type filter with images */}
-                <div style={{ display:"flex", gap:5, alignItems:"center" }}>
+                {/* SVG type filter icons */}
+                <div style={{ display:"flex", gap:4, alignItems:"center" }}>
                   <button onClick={() => setFilterType("All")} style={{ padding:"4px 8px", borderRadius:5, fontSize:10, cursor:"pointer", fontFamily:"var(--font-mono)", border: filterType==="All"?"1px solid var(--accent-amber)":"1px solid var(--border)", background: filterType==="All"?"#2a1e00":"transparent", color: filterType==="All"?"var(--accent-gold)":"var(--text-muted)" }}>All</button>
                   {Object.entries(TYPE_META).map(([type, meta]) => (
-                    <button key={type} onClick={() => setFilterType(filterType===type?"All":type)} title={type} style={{ width:28, height:28, borderRadius:5, cursor:"pointer", border: filterType===type?`1px solid ${meta.color}`:"1px solid var(--border)", background: filterType===type?`${meta.color}22`:meta.bg, display:"flex", alignItems:"center", justifyContent:"center", padding:4 }}>
-                      <img src={meta.img} alt={type} style={{ width:18, height:18, objectFit:"contain" }} />
+                    <button key={type} onClick={() => setFilterType(filterType===type?"All":type)} title={type} style={{ width:28, height:28, borderRadius:5, cursor:"pointer", border: filterType===type?`1px solid ${meta.color}`:"1px solid var(--border)", background: filterType===type?`${meta.color}22`:meta.bg, display:"flex", alignItems:"center", justifyContent:"center", padding:3 }}>
+                      <EnergySVG type={type} size={18} />
                     </button>
                   ))}
                 </div>
@@ -444,7 +499,7 @@ export default function BrowsePage() {
               </div>
             </div>
 
-            {loading && (
+            {loading && cards.length === 0 && (
               <div style={{ display:"flex", justifyContent:"center", padding:"60px 0", flexDirection:"column", alignItems:"center", gap:12 }}>
                 <Spinner size={28} />
                 <MonoText>Fetching cards...</MonoText>
@@ -455,19 +510,17 @@ export default function BrowsePage() {
               <EmptyState icon="◈" title="NO CARDS FOUND" subtitle="Try a different search or browse by set" />
             )}
 
-            {!loading && displayCards.length > 0 && view === "grid" && (
+            {displayCards.length > 0 && view === "grid" && (
               <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(150px, 1fr))", gap:10 }}>
-                {displayCards.map((card, i) => (
-                  <div key={card.id} style={{ animation:`fadeUp 0.25s ease ${Math.min(i,12)*0.03}s both` }}>
-                    <BrowseCard card={card} />
-                  </div>
-                ))}
+                {displayCards.map(card => <BrowseCard key={card.id} card={card} />)}
+                {loadingMore && <div style={{ display:"flex", alignItems:"center", justifyContent:"center", background:"var(--bg-card)", border:"1px solid var(--border)", borderRadius:10, minHeight:200 }}><Spinner /></div>}
               </div>
             )}
 
-            {!loading && displayCards.length > 0 && view === "list" && (
+            {displayCards.length > 0 && view === "list" && (
               <Panel style={{ overflow:"hidden" }}>
                 {displayCards.map((card, i) => <BrowseRow key={card.id} card={card} last={i===displayCards.length-1} />)}
+                {loadingMore && <div style={{ padding:20, textAlign:"center" }}><Spinner /></div>}
               </Panel>
             )}
           </div>
