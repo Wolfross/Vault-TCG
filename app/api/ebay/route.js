@@ -52,8 +52,9 @@ export async function GET(request) {
 
     const root = data?.findCompletedItemsResponse?.[0];
     if (!root || root.ack?.[0] !== "Success") {
-      console.error("eBay Finding API error:", JSON.stringify(root?.errorMessage || data));
-      return Response.json({ source: "mock", items: getMockSales(card, condition), error: "eBay API error" });
+      const errDetail = JSON.stringify(root?.errorMessage || root || data);
+      console.error("eBay Finding API error:", errDetail);
+      return Response.json({ source: "mock", items: getMockSales(card, condition), error: errDetail });
     }
 
     const listings = root.searchResult?.[0]?.item || [];
@@ -79,7 +80,7 @@ export async function GET(request) {
           condition: item.condition?.[0]?.conditionDisplayName?.[0] || condition,
           type: isAuction ? "Auction" : "BIN",
           bids: isAuction && bids > 0 ? bids : null,
-          url: item.viewItemURL?.[0],  // individual listing URL
+          url: item.viewItemURL?.[0],
           image: item.galleryURL?.[0] || null,
           date: endTime,
         };
@@ -87,7 +88,6 @@ export async function GET(request) {
       .filter(item => item.price > 0)
       .slice(0, 20);
 
-    // Build a search URL for "View on eBay" that searches sold listings for this card
     const ebaySearchUrl = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(keywords)}&LH_Sold=1&LH_Complete=1&_sacat=2536`;
 
     return Response.json({ source: "ebay", items, ebaySearchUrl });
