@@ -6,7 +6,6 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "rec
 import { Panel, SectionLabel, MonoText, PixelText, HoloBadge, EraTag, Spinner, Button } from "@/components/shared/ui";
 import { addCard, getCollection, updateCard, removeCard } from "@/lib/collection";
 
-/* ── Grade order: highest value first ── */
 const GRADE_OPTIONS    = ["Raw","PSA 10","PSA 9","PSA 8","PSA 7","BGS 9.5","BGS 9","CGC 10","CGC 9"];
 const PRICE_CONDITIONS = ["Raw","PSA 10","PSA 9","PSA 8","PSA 7","BGS 9.5","BGS 9"];
 const COND_OPTIONS     = ["NM","LP","MP","HP","D"];
@@ -16,7 +15,7 @@ const MOCK_HISTORY = [
   { d:"Jan", p:365 },{ d:"Feb", p:390 },{ d:"Mar", p:412 },
 ];
 
-function fmt(n)     { return "$" + Number(n||0).toLocaleString("en-US",{maximumFractionDigits:0}); }
+function fmt(n) { return "$" + Number(n||0).toLocaleString("en-US",{maximumFractionDigits:0}); }
 function fmtFull(n) {
   if (n == null) return "—";
   return "$" + Number(n).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -56,9 +55,6 @@ function getTcgPrice(card) {
     || p["1stEditionHolofoil"]?.market || p.unlimitedHolofoil?.market || null;
 }
 
-/* ─────────────────────────────────────
-   MY COPY PANEL
-───────────────────────────────────── */
 function MyCopyPanel({ collectionItem, bestPrice, onUpdated, onDeleted }) {
   const [editing,  setEditing]  = useState(false);
   const [cond,     setCond]     = useState(collectionItem.condition || "NM");
@@ -217,9 +213,6 @@ function MyCopyPanel({ collectionItem, bestPrice, onUpdated, onDeleted }) {
   );
 }
 
-/* ─────────────────────────────────────
-   MAIN
-───────────────────────────────────── */
 export default function CardDetail() {
   const { id }           = useParams();
   const router           = useRouter();
@@ -331,7 +324,6 @@ export default function CardDetail() {
     <div style={{ background:"var(--bg-base)", minHeight:"100vh", padding:"20px 24px 60px" }}>
       <div style={{ maxWidth:1100, margin:"0 auto" }}>
 
-        {/* Breadcrumb */}
         <div style={{ fontSize:12, color:"var(--text-dim)", marginBottom:16, display:"flex", gap:6, fontFamily:"var(--font-mono)" }}>
           <Link href="/browse" style={{ color:"var(--text-muted)", textDecoration:"none" }}>Browse</Link>
           <span>›</span>
@@ -340,7 +332,6 @@ export default function CardDetail() {
           <span style={{ color:"var(--text-secondary)" }}>{card.name}</span>
         </div>
 
-        {/* Card header */}
         <div style={{ display:"flex", gap:24, alignItems:"flex-start", marginBottom:24, flexWrap:"wrap" }}>
           <div style={{ flexShrink:0 }}>
             {card.images?.large
@@ -375,7 +366,6 @@ export default function CardDetail() {
               </div>
             )}
 
-            {/* Grade tabs */}
             <div style={{ marginBottom: collectionItem ? 8 : 16 }}>
               <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
                 {PRICE_CONDITIONS.map(c => {
@@ -385,9 +375,9 @@ export default function CardDetail() {
                     <button key={c} onClick={() => handleGradeTab(c)} style={{
                       padding:"5px 12px", borderRadius:7, fontSize:11, fontWeight:600, cursor:"pointer",
                       fontFamily:"var(--font-mono)",
-                      border:      isOwned ? "2px solid var(--accent-green)" : isActive ? "1px solid var(--accent-blue)" : "1px solid var(--border)",
-                      background:  isOwned ? "#052e16" : isActive ? "#1e3a5f" : "transparent",
-                      color:       isOwned ? "#4ade80" : isActive ? "#93c5fd" : "var(--text-muted)",
+                      border:     isOwned ? "2px solid var(--accent-green)" : isActive ? "1px solid var(--accent-blue)" : "1px solid var(--border)",
+                      background: isOwned ? "#052e16" : isActive ? "#1e3a5f" : "transparent",
+                      color:      isOwned ? "#4ade80" : isActive ? "#93c5fd" : "var(--text-muted)",
                       transition:"all .15s", position:"relative",
                     }}>
                       {c}
@@ -455,7 +445,6 @@ export default function CardDetail() {
           </div>
         </div>
 
-        {/* My Copy Panel */}
         {collectionItem && (
           <MyCopyPanel
             collectionItem={collectionItem}
@@ -465,7 +454,6 @@ export default function CardDetail() {
           />
         )}
 
-        {/* Price cards */}
         <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:10, marginBottom:20 }}>
           {[
             { label:"eBay avg (30d)",  value:ebayAvg,  sub:`${prices.length} sold listings`, accent:true,  dot:"#f59e0b" },
@@ -488,7 +476,6 @@ export default function CardDetail() {
           ))}
         </div>
 
-        {/* Chart */}
         <Panel style={{ padding:"18px 20px 12px", marginBottom:20 }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
             <div>
@@ -512,7 +499,6 @@ export default function CardDetail() {
           <div style={{ fontSize:11, color:"var(--text-dim)", marginTop:8 }}>Price history shows mock data — real tracking coming soon.</div>
         </Panel>
 
-        {/* Tabs */}
         <div style={{ display:"flex", gap:0, borderBottom:"1px solid var(--border)", marginBottom:16 }}>
           {[
             { key:"ebay",  label:`eBay Sold (${ebay.items.length})` },
@@ -523,7 +509,6 @@ export default function CardDetail() {
           ))}
         </div>
 
-        {/* eBay tab */}
         {tab === "ebay" && (
           <Panel style={{ overflow:"hidden" }}>
             <div style={{ padding:"12px 16px", borderBottom:"1px solid var(--border-dim)" }}>
@@ -551,20 +536,10 @@ export default function CardDetail() {
                       <tr key={item.id} style={{ borderBottom:"1px solid var(--border-dim)", background: i%2===0?"transparent":"#050a12" }}>
                         <td style={{ padding:"10px 14px", color:"var(--text-muted)", whiteSpace:"nowrap", fontFamily:"var(--font-mono)", fontSize:11 }}>{timeAgo(item.date)}</td>
                         <td style={{ padding:"10px 14px", color:"var(--text-secondary)", maxWidth:320 }}>
-                          {item.url ? (
-                            
-                              href={item.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              style={{ color:"var(--text-secondary)", textDecoration:"none", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", display:"block" }}
-                              onMouseEnter={e => e.currentTarget.style.color="var(--accent-blue)"}
-                              onMouseLeave={e => e.currentTarget.style.color="var(--text-secondary)"}
-                            >
-                              {item.title}
-                            </a>
-                          ) : (
-                            <div style={{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{item.title}</div>
-                          )}
+                          {item.url
+                            ? <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ color:"var(--accent-blue)", textDecoration:"none", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", display:"block" }}>{item.title}</a>
+                            : <div style={{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{item.title}</div>
+                          }
                           {item.bids && <div style={{ fontSize:10, color:"var(--text-dim)", marginTop:1 }}>{item.bids} bids</div>}
                         </td>
                         <td style={{ padding:"10px 14px" }}>
@@ -595,7 +570,6 @@ export default function CardDetail() {
           </Panel>
         )}
 
-        {/* Stats tab */}
         {tab === "stats" && (
           <Panel style={{ padding:20 }}>
             <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:16 }}>
