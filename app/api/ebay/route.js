@@ -1,107 +1,99 @@
 /**
  * /api/ebay?card=Charizard Base Set 4/102&condition=Raw
  *
- * Uses eBay Browse API → search with filter for sold items.
- * Returns SOLD listings only — the gold standard for real market value.
+ * Uses eBay Finding API → findCompletedItems with SoldItemsOnly=true
+ * This returns SOLD listings only — not active listings.
+ * Active listings tell you what sellers hope to get.
+ * Sold listings tell you what the market actually paid.
  *
- * Requires: EBAY_CLIENT_ID + EBAY_CLIENT_SECRET in env vars.
- * Auth: Client Credentials OAuth (no user login needed).
+ * Only requires EBAY_CLIENT_ID (App ID) — no OAuth needed for Finding API.
  */
-
-async function getEbayToken() {
-  const credentials = Buffer.from(
-    `${process.env.EBAY_CLIENT_ID}:${process.env.EBAY_CLIENT_SECRET}`
-  ).toString("base64");
-
-  const res = await fetch("https://api.ebay.com/identity/v1/oauth2/token", {
-    method: "POST",
-    headers: {
-      "Authorization": `Basic ${credentials}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: "grant_type=client_credentials&scope=https%3A%2F%2Fapi.ebay.com%2Foauth%2Fapi_scope",
-    next: { revalidate: 7000 }, // token lasts 7200s, refresh slightly before
-  });
-
-  const data = await res.json();
-  return data.access_token || null;
-}
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const card = searchParams.get("card") || "";
   const condition = searchParams.get("condition") || "Raw";
 
-  const clientId = process.env.EBAY_CLIENT_ID;
-  const clientSecret = process.env.EBAY_CLIENT_SECRET;
+  const appId = process.env.EBAY_CLIENT_ID;
 
-  // No keys = return mock data so UI still works
-  if (!clientId || !clientSecret) {
+  // No key = return mock data so UI still works during setup
+  if (!appId) {
     return Response.json({ source: "mock", items: getMockSales(card, condition) });
   }
 
+  // Build a tight search query
+  let keywords = `${card} pokemon`;
+  if (condition.includes("PSA")) keywords += ` PSA ${condition.replace("PSA ", "")}`;
+  if (condition.includes("BGS")) keywords += ` BGS ${condition.replace("BGS ", "")}`;
+  if (condition.includes("CGC")) keywords += ` CGC ${condition.replace("CGC ", "")}`;
+
+  const params = new URLSearchParams({
+    "OPERATION-NAME": "findCompletedItems",
+    "SERVICE-VERSION": "1.0.0",
+    "SECURITY-APPNAME": appId,
+    "RESPONSE-DATA-FORMAT": "JSON",
+    "REST-PAYLOAD": "",
+    "keywords": keywords,
+    "categoryId": "2536",
+    "itemFilter(0).name": "SoldItemsOnly",
+    "itemFilter(0).value": "true",
+    "itemFilter(1).name": "Currency",
+    "itemFilter(1).value": "USD",
+    "sortOrder": "EndTimeSoonest",
+    "paginationInput.entriesPerPage": "20",
+    "outputSelector(0)": "SellingStatus",
+  });
+
+  const url = `https://svcs.ebay.com/services/search/FindingService/v1?${params.toString()}`;
+
   try {
-    const token = await getEbayToken();
-    if (!token) {
-      return Response.json({ source: "mock", items: getMockSales(card, condition), error: "Token fetch failed" });
-    }
-
-    // Build search query — include grade in keywords for graded cards
-    let keywords = `${card} pokemon card`;
-    if (condition.includes("PSA")) keywords += ` PSA ${condition.replace("PSA ", "")}`;
-    if (condition.includes("BGS")) keywords += ` BGS ${condition.replace("BGS ", "")}`;
-    if (condition.includes("CGC")) keywords += ` CGC ${condition.replace("CGC ", "")}`;
-
-    const params = new URLSearchParams({
-      q: keywords,
-      category_ids: "2536", // Pokémon TCG category
-      filter: "buyingOptions:{FIXED_PRICE|AUCTION},conditions:{USED|UNGRADED}",
-      sort: "endingSoonest",
-      limit: "20",
-    });
-
-    const res = await fetch(
-      `https://api.ebay.com/buy/browse/v1/item_summary/search?${params.toString()}`,
-      {
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "X-EBAY-C-MARKETPLACE-ID": "EBAY_US",
-          "Content-Type": "application/json",
-        },
-        next: { revalidate: 900 }, // cache 15 mins
-      }
-    );
-
+    const res = await fetch(url, { next: { revalidate: 900 } });
     const data = await res.json();
 
-    if (!data.itemSummaries?.length) {
-      return Response.json({ source: "mock", items: getMockSales(card, condition), error: "No results" });
+    const root = data?.findCompletedItemsResponse?.[0];
+    if (!root || root.ack?.[0] !== "Success") {
+      console.error("eBay Finding API error:", JSON.stringify(root?.errorMessage || data));
+      return Response.json({ source: "mock", items: getMockSales(card, condition), error: "eBay API error" });
     }
 
-    const items = data.itemSummaries
+    const listings = root.searchResult?.[0]?.item || [];
+
+    const items = listings
+      .filter(item => {
+        const sellingState = item.sellingStatus?.[0]?.sellingState?.[0];
+        return sellingState === "EndedWithSales";
+      })
       .map(item => {
-        const price = parseFloat(item.price?.value || 0);
-        const isAuction = item.buyingOptions?.includes("AUCTION");
+        const soldPrice = parseFloat(
+          item.sellingStatus?.[0]?.currentPrice?.[0]?.["__value__"] || 0
+        );
+        const endTime = item.listingInfo?.[0]?.endTime?.[0];
+        const isAuction = item.listingInfo?.[0]?.listingType?.[0] === "Auction";
+        const bids = parseInt(item.sellingStatus?.[0]?.bidCount?.[0] || 0);
+
         return {
-          id: item.itemId,
-          title: item.title,
-          price,
-          currency: item.price?.currency || "USD",
-          condition: item.condition || condition,
+          id: item.itemId?.[0],
+          title: item.title?.[0],
+          price: soldPrice,
+          currency: "USD",
+          condition: item.condition?.[0]?.conditionDisplayName?.[0] || condition,
           type: isAuction ? "Auction" : "BIN",
-          bids: isAuction ? (item.bidCount || null) : null,
-          url: item.itemWebUrl,
-          image: item.thumbnailImages?.[0]?.imageUrl || item.image?.imageUrl || null,
-          date: item.itemEndDate || new Date().toISOString(),
+          bids: isAuction && bids > 0 ? bids : null,
+          url: item.viewItemURL?.[0],  // individual listing URL
+          image: item.galleryURL?.[0] || null,
+          date: endTime,
         };
       })
       .filter(item => item.price > 0)
       .slice(0, 20);
 
-    return Response.json({ source: "ebay", items });
+    // Build a search URL for "View on eBay" that searches sold listings for this card
+    const ebaySearchUrl = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(keywords)}&LH_Sold=1&LH_Complete=1&_sacat=2536`;
+
+    return Response.json({ source: "ebay", items, ebaySearchUrl });
 
   } catch (e) {
-    console.error("eBay Browse API error:", e.message);
+    console.error("eBay fetch error:", e.message);
     return Response.json({ source: "mock", items: getMockSales(card, condition), error: e.message });
   }
 }
@@ -116,6 +108,8 @@ function getMockSales(card, condition) {
     : condition.includes("PSA 7") ? 780
     : 410;
 
+  const searchUrl = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(card + " pokemon")}&LH_Sold=1&LH_Complete=1&_sacat=2536`;
+
   return Array.from({ length: 8 }, (_, i) => ({
     id: `mock-${i}`,
     title: `${card} Pokemon Card ${condition} ${["NM/MT","EX-MT","EX"][i % 3]}`,
@@ -124,7 +118,7 @@ function getMockSales(card, condition) {
     condition: condition === "Raw" ? ["NM/MT","EX-MT","EX"][i % 3] : condition,
     type: i % 3 === 0 ? "Auction" : "BIN",
     bids: i % 3 === 0 ? Math.floor(Math.random() * 20) + 3 : null,
-    url: `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(card + " " + condition)}&LH_Sold=1&LH_Complete=1`,
+    url: searchUrl,
     image: null,
     date: new Date(Date.now() - i * 2 * 24 * 60 * 60 * 1000).toISOString(),
   }));
