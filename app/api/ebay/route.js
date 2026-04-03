@@ -47,7 +47,7 @@ export async function GET(request) {
   const url = `https://svcs.ebay.com/services/search/FindingService/v1?${params.toString()}`;
 
   try {
-    const res = await fetch(url, { next: { revalidate: 900 } });
+const res = await fetch(url, { cache: "no-store" });
     const data = await res.json();
 
     const root = data?.findCompletedItemsResponse?.[0];
