@@ -27,7 +27,6 @@ function fmtFull(n) {
   return "$" + Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-/* ── Edit Card Modal ── */
 function EditModal({ card, onSave, onClose }) {
   const [grade,     setGrade]     = useState(card.grade     || "Raw");
   const [condition, setCondition] = useState(card.condition || "NM");
@@ -41,7 +40,6 @@ function EditModal({ card, onSave, onClose }) {
     setSaving(true);
     const updates = { grade, condition, notes };
     if (purchase !== "") updates.purchase_price = parseFloat(purchase);
-    /* If grade changed, flag for price refresh */
     if (gradeChanged) updates.current_price = null;
     await updateCard(card.id, updates);
     setSaving(false);
@@ -51,7 +49,6 @@ function EditModal({ card, onSave, onClose }) {
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.8)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200, padding:20 }}>
       <Panel style={{ width:"100%", maxWidth:420, padding:24 }}>
-        {/* Header */}
         <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:20, paddingBottom:16, borderBottom:"1px solid var(--border-dim)" }}>
           {card.image_url
             ? <img src={card.image_url} alt={card.name} style={{ width:44, height:60, objectFit:"contain", borderRadius:6 }} />
@@ -63,7 +60,6 @@ function EditModal({ card, onSave, onClose }) {
           </div>
         </div>
 
-        {/* Grade — most important field */}
         <div style={{ marginBottom:16 }}>
           <SectionLabel style={{ marginBottom:8 }}>Grade</SectionLabel>
           <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
@@ -78,7 +74,6 @@ function EditModal({ card, onSave, onClose }) {
           )}
         </div>
 
-        {/* Condition */}
         <div style={{ marginBottom:16 }}>
           <SectionLabel style={{ marginBottom:8 }}>Condition</SectionLabel>
           <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
@@ -88,26 +83,16 @@ function EditModal({ card, onSave, onClose }) {
           </div>
         </div>
 
-        {/* Purchase price */}
         <div style={{ marginBottom:16 }}>
           <SectionLabel style={{ marginBottom:8 }}>Purchase price</SectionLabel>
-          <input
-            value={purchase}
-            onChange={e => setPurchase(e.target.value)}
-            placeholder={card.purchase_price ? fmtFull(card.purchase_price) : "$0.00"}
-            style={{ width:"100%", padding:"9px 12px", borderRadius:8, fontSize:13, fontFamily:"var(--font-mono)" }}
-          />
+          <input value={purchase} onChange={e => setPurchase(e.target.value)} placeholder={card.purchase_price ? fmtFull(card.purchase_price) : "$0.00"}
+            style={{ width:"100%", padding:"9px 12px", borderRadius:8, fontSize:13, fontFamily:"var(--font-mono)" }} />
         </div>
 
-        {/* Notes */}
         <div style={{ marginBottom:20 }}>
           <SectionLabel style={{ marginBottom:8 }}>Notes</SectionLabel>
-          <input
-            value={notes}
-            onChange={e => setNotes(e.target.value)}
-            placeholder="e.g. Bought at local card show, minor edge wear..."
-            style={{ width:"100%", padding:"9px 12px", borderRadius:8, fontSize:13 }}
-          />
+          <input value={notes} onChange={e => setNotes(e.target.value)} placeholder="e.g. Bought at local card show, minor edge wear..."
+            style={{ width:"100%", padding:"9px 12px", borderRadius:8, fontSize:13 }} />
         </div>
 
         <div style={{ display:"flex", gap:10 }}>
@@ -121,7 +106,6 @@ function EditModal({ card, onSave, onClose }) {
   );
 }
 
-/* ── Delete Modal ── */
 function DeleteModal({ card, onConfirm, onClose }) {
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.8)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200, padding:20 }}>
@@ -134,9 +118,7 @@ function DeleteModal({ card, onConfirm, onClose }) {
             Current value: <span style={{ color:"var(--accent-gold)" }}>{fmtFull(card.current_price)}</span>
           </div>
         )}
-        <div style={{ fontSize:11, color:"var(--text-dim)", marginBottom:20, fontStyle:"italic" }}>
-          Released to another trainer
-        </div>
+        <div style={{ fontSize:11, color:"var(--text-dim)", marginBottom:20, fontStyle:"italic" }}>Released to another trainer</div>
         <div style={{ display:"flex", gap:10 }}>
           <button onClick={onClose} style={{ flex:1, padding:"10px", borderRadius:8, border:"1px solid var(--border)", background:"transparent", color:"var(--text-muted)", cursor:"pointer", fontSize:12 }}>Keep it</button>
           <button onClick={onConfirm} style={{ flex:1, padding:"10px", borderRadius:8, border:"1px solid #7f1d1d", background:"#450a0a", color:"#f87171", cursor:"pointer", fontSize:12, fontWeight:600 }}>Release</button>
@@ -150,6 +132,7 @@ function CollectionInner() {
   const searchParams = useSearchParams();
   const [items,       setItems]       = useState([]);
   const [loading,     setLoading]     = useState(true);
+  const [refreshing,  setRefreshing]  = useState(false);
   const [view,        setView]        = useState("grid");
   const [sortBy,      setSortBy]      = useState("date_desc");
   const [filterCond,  setFilterCond]  = useState("All");
@@ -165,6 +148,14 @@ function CollectionInner() {
   useEffect(() => {
     getCollection().then(c => { setItems(c); setLoading(false); });
   }, []);
+
+  // ✅ Refresh from Supabase — clears unpriced banner after price updates
+  const refreshCollection = async () => {
+    setRefreshing(true);
+    const c = await getCollection();
+    setItems(c);
+    setRefreshing(false);
+  };
 
   const filtered = items
     .filter(c => {
@@ -187,8 +178,8 @@ function CollectionInner() {
       return new Date(b.added_at) - new Date(a.added_at);
     });
 
-  const pricedItems  = filtered.filter(c => c.current_price > 0);
-  const totalValue   = pricedItems.reduce((s, c) => s + c.current_price * (c.quantity || 1), 0);
+  const pricedItems   = filtered.filter(c => c.current_price > 0);
+  const totalValue    = pricedItems.reduce((s, c) => s + c.current_price * (c.quantity || 1), 0);
   const unpricedCount = filtered.filter(c => !c.current_price || c.current_price === 0).length;
 
   const handleDelete = async () => {
@@ -209,7 +200,6 @@ function CollectionInner() {
     <div style={{ background:"var(--bg-base)", minHeight:"100vh", padding:"20px 24px 60px" }}>
       <div style={{ maxWidth:1100, margin:"0 auto" }}>
 
-        {/* Header */}
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:20, flexWrap:"wrap", gap:12 }}>
           <div>
             <SectionLabel style={{ marginBottom:4 }}>
@@ -223,7 +213,6 @@ function CollectionInner() {
               {unpricedCount > 0 && <span style={{ color:"#fbbf24", marginLeft:8 }}>· {unpricedCount} unpriced</span>}
             </div>
           </div>
-          {/* Two equal CTAs */}
           <div style={{ display:"flex", gap:10 }}>
             <Link href="/browse">
               <button style={{ padding:"10px 18px", borderRadius:8, border:"1px solid var(--border)", background:"var(--bg-card)", color:"var(--text-secondary)", cursor:"pointer", fontSize:12, fontWeight:600, whiteSpace:"nowrap" }}>
@@ -236,18 +225,24 @@ function CollectionInner() {
           </div>
         </div>
 
-        {/* Unpriced warning */}
+        {/* ✅ Unpriced warning with refresh button */}
         {unpricedCount > 0 && (
           <div style={{ background:"#1a1200", border:"1px solid #92400e44", borderRadius:8, padding:"10px 14px", marginBottom:14, display:"flex", alignItems:"center", gap:10 }}>
             <span style={{ fontSize:14 }}>⚠️</span>
-            <div style={{ fontSize:12, color:"#fbbf24" }}>
+            <div style={{ fontSize:12, color:"#fbbf24", flex:1 }}>
               {unpricedCount} card{unpricedCount > 1 ? "s" : ""} couldn't be priced automatically.
               <span style={{ color:"var(--text-dim)", marginLeft:6 }}>Tap the card and edit to update manually.</span>
             </div>
+            <button
+              onClick={refreshCollection}
+              disabled={refreshing}
+              style={{ padding:"4px 10px", borderRadius:6, border:"1px solid #92400e", background:"transparent", color:"#fbbf24", fontSize:11, cursor:"pointer", fontFamily:"var(--font-mono)", opacity: refreshing ? 0.6 : 1, whiteSpace:"nowrap" }}
+            >
+              {refreshing ? "Refreshing..." : "↺ Refresh"}
+            </button>
           </div>
         )}
 
-        {/* Search + controls */}
         <div style={{ display:"flex", gap:10, marginBottom:12, flexWrap:"wrap" }}>
           <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search your collection..."
             style={{ flex:1, minWidth:200, padding:"10px 14px", borderRadius:8, fontSize:13 }} />
@@ -262,7 +257,6 @@ function CollectionInner() {
           </div>
         </div>
 
-        {/* Filters */}
         {showFilters && (
           <Panel style={{ padding:"14px 16px", marginBottom:14 }}>
             <div style={{ display:"flex", gap:20, flexWrap:"wrap" }}>
@@ -292,7 +286,6 @@ function CollectionInner() {
           </Panel>
         )}
 
-        {/* Empty */}
         {filtered.length === 0 && (
           <EmptyState icon="🃏" title="YOUR PC BOX IS EMPTY"
             subtitle={items.length > 0 ? "Try changing your filters" : "Scan or add your first card to get started"}
@@ -305,7 +298,6 @@ function CollectionInner() {
           />
         )}
 
-        {/* Grid view */}
         {filtered.length > 0 && view === "grid" && (
           <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(175px, 1fr))", gap:12 }}>
             {filtered.map(card => (
@@ -317,7 +309,6 @@ function CollectionInner() {
           </div>
         )}
 
-        {/* List view */}
         {filtered.length > 0 && view === "list" && (
           <Panel style={{ overflow:"hidden" }}>
             <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr 80px 80px 120px 64px", gap:12, padding:"8px 16px", borderBottom:"1px solid var(--border-dim)" }}>
@@ -332,17 +323,13 @@ function CollectionInner() {
           </Panel>
         )}
 
-        {/* Delete modal */}
         {toDelete && <DeleteModal card={toDelete} onConfirm={handleDelete} onClose={() => setToDelete(null)} />}
-
-        {/* Edit modal */}
         {toEdit && <EditModal card={toEdit} onSave={handleEditSave} onClose={() => setToEdit(null)} />}
       </div>
     </div>
   );
 }
 
-/* ── Grid card ── */
 function GridCard({ card, onDelete, onEdit }) {
   const hasPrice  = card.current_price && card.current_price > 0;
   const hasCost   = card.purchase_price && card.purchase_price > 0;
@@ -351,7 +338,6 @@ function GridCard({ card, onDelete, onEdit }) {
 
   return (
     <Panel style={{ overflow:"hidden", position:"relative" }}>
-      {/* Action buttons — always visible on mobile, hover on desktop */}
       <div style={{ position:"absolute", top:6, right:6, display:"flex", gap:4, zIndex:2 }}>
         <button onClick={e => { e.preventDefault(); onEdit(); }} style={{ width:22, height:22, borderRadius:"50%", background:"#1e3a5f", border:"1px solid #2d5a8e", color:"#93c5fd", cursor:"pointer", fontSize:11, display:"flex", alignItems:"center", justifyContent:"center" }} title="Edit">✎</button>
         <button onClick={e => { e.preventDefault(); onDelete(); }} style={{ width:22, height:22, borderRadius:"50%", background:"#450a0a", border:"1px solid #7f1d1d", color:"#f87171", cursor:"pointer", fontSize:11, display:"flex", alignItems:"center", justifyContent:"center" }} title="Remove">✕</button>
@@ -386,7 +372,6 @@ function GridCard({ card, onDelete, onEdit }) {
             )}
           </div>
 
-          {/* Market value — primary */}
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end" }}>
             {hasPrice
               ? <span style={{ fontFamily:"var(--font-mono)", fontSize:14, fontWeight:700, color:"var(--accent-gold)" }}>{fmtFull(card.current_price)}</span>
@@ -399,7 +384,6 @@ function GridCard({ card, onDelete, onEdit }) {
             )}
           </div>
 
-          {/* Cost basis — secondary */}
           {hasCost && hasPrice && (
             <div style={{ fontSize:9, color:"var(--text-dim)", marginTop:3, fontFamily:"var(--font-mono)" }}>
               paid {fmtFull(card.purchase_price)}
@@ -411,7 +395,6 @@ function GridCard({ card, onDelete, onEdit }) {
   );
 }
 
-/* ── List row ── */
 function ListRow({ card, last, onDelete, onEdit }) {
   const hasPrice = card.current_price && card.current_price > 0;
   return (
