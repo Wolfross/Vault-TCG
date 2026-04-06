@@ -228,6 +228,7 @@ export default function CardDetail() {
   const [addPrice,       setAddPrice]       = useState("");
   const [chartRange,     setChartRange]     = useState("6mo");
   const [gradeUpdating,  setGradeUpdating]  = useState(false);
+  const [pendingGrade,   setPendingGrade]   = useState(null);
 
   useEffect(() => {
     if (!id) return;
@@ -283,13 +284,20 @@ export default function CardDetail() {
   const bestPrice   = ebayAvg || tcgPrice || cmPrice || null;
   const priceSource = ebayAvg ? "eBay avg" : tcgPrice ? "TCGplayer" : cmPrice ? "CardMarket" : null;
 
-  const handleGradeTab = async (g) => {
+  const handleGradeTab = (g) => {
     setCondition(g);
     if (!collectionItem || collectionItem.grade === g) return;
+    setPendingGrade(g);
+  };
+
+  const confirmGradeChange = async () => {
+    if (!pendingGrade) return;
     setGradeUpdating(true);
-    const updates = { grade: g, current_price: null };
+    const updates = { grade: pendingGrade, current_price: null };
     await updateCard(collectionItem.id, updates);
     setCollectionItem(prev => ({ ...prev, ...updates }));
+    setCondition(pendingGrade);
+    setPendingGrade(null);
     setGradeUpdating(false);
   };
 
@@ -612,6 +620,26 @@ export default function CardDetail() {
               <Button variant="secondary" style={{ fontSize:12 }}>Browse all printings of {card.name} →</Button>
             </Link>
           </Panel>
+        )}
+
+        {/* Grade change confirm modal */}
+        {pendingGrade && (
+          <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.8)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200, padding:20 }}>
+            <Panel style={{ padding:24, maxWidth:360, width:"100%", textAlign:"center" }}>
+              <PixelText size={11} color="#93c5fd" style={{ display:"block", marginBottom:12 }}>UPDATE GRADE?</PixelText>
+              <div style={{ fontSize:13, color:"var(--text-secondary)", marginBottom:4 }}>{collectionItem?.name}</div>
+              <div style={{ fontSize:11, color:"var(--text-muted)", marginBottom:20 }}>
+                {collectionItem?.grade || "Raw"} → <span style={{ color:"#93c5fd", fontWeight:600 }}>{pendingGrade}</span>
+              </div>
+              <div style={{ fontSize:11, color:"var(--text-dim)", marginBottom:20, fontStyle:"italic" }}>Price will refresh automatically</div>
+              <div style={{ display:"flex", gap:10 }}>
+                <button onClick={() => { setPendingGrade(null); setCondition(collectionItem?.grade || "Raw"); }} style={{ flex:1, padding:"10px", borderRadius:8, border:"1px solid var(--border)", background:"transparent", color:"var(--text-muted)", cursor:"pointer", fontSize:12 }}>Cancel</button>
+                <button onClick={confirmGradeChange} disabled={gradeUpdating} style={{ flex:1, padding:"10px", borderRadius:8, border:"1px solid #2d5a8e", background:"#1e3a5f", color:"#93c5fd", cursor:"pointer", fontSize:12, fontWeight:600, opacity: gradeUpdating?0.7:1 }}>
+                  {gradeUpdating ? "Saving..." : "Confirm"}
+                </button>
+              </div>
+            </Panel>
+          </div>
         )}
 
       </div>
