@@ -126,27 +126,119 @@ const TYPE_META = {
 };
 
 const SET_CATALOG = [
-  { id:"base1",    name:"Base Set",         year:1999, era:"90s", total:102, hot:true  },
-  { id:"base2",    name:"Jungle",           year:1999, era:"90s", total:64,  hot:false },
-  { id:"base3",    name:"Fossil",           year:1999, era:"90s", total:62,  hot:false },
-  { id:"base5",    name:"Team Rocket",      year:2000, era:"90s", total:83,  hot:false },
-  { id:"neo1",     name:"Neo Genesis",      year:2000, era:"90s", total:111, hot:true  },
-  { id:"neo2",     name:"Neo Discovery",    year:2001, era:"90s", total:75,  hot:false },
-  { id:"neo3",     name:"Neo Revelation",   year:2001, era:"90s", total:66,  hot:false },
-  { id:"neo4",     name:"Neo Destiny",      year:2002, era:"90s", total:113, hot:false },
-  { id:"ecard1",   name:"Expedition Base",  year:2002, era:"00s", total:165, hot:false },
-  { id:"ex1",      name:"Ruby & Sapphire",  year:2003, era:"00s", total:109, hot:false },
-  { id:"ex13",     name:"Delta Species",    year:2005, era:"00s", total:114, hot:false },
-  { id:"dp1",      name:"Diamond & Pearl",  year:2007, era:"00s", total:130, hot:false },
-  { id:"pl1",      name:"Platinum",         year:2009, era:"00s", total:133, hot:false },
-  { id:"bw1",      name:"Black & White",    year:2011, era:"10s", total:114, hot:false },
-  { id:"xy1",      name:"XY",               year:2014, era:"10s", total:146, hot:false },
-  { id:"evolutions",name:"XY Evolutions",   year:2016, era:"10s", total:108, hot:true  },
-  { id:"sm1",      name:"Sun & Moon",       year:2017, era:"10s", total:149, hot:false },
-  { id:"swsh1",    name:"Sword & Shield",   year:2020, era:"20s", total:216, hot:false },
-  { id:"swsh12",   name:"Silver Tempest",   year:2022, era:"20s", total:215, hot:false },
-  { id:"sv3",      name:"Obsidian Flames",  year:2023, era:"20s", total:197, hot:true  },
-  { id:"sv4pt5",   name:"Paldean Fates",    year:2024, era:"20s", total:91,  hot:true  },
+  { id:"base1",     name:"Base Set",              year:1999, era:"90s", total:102, hot:true  },
+  { id:"base2",     name:"Jungle",                year:1999, era:"90s", total:64,  hot:false },
+  { id:"base3",     name:"Fossil",                year:1999, era:"90s", total:62,  hot:false },
+  { id:"base4",     name:"Base Set 2",            year:2000, era:"90s", total:130, hot:false },
+  { id:"base5",     name:"Team Rocket",           year:2000, era:"90s", total:83,  hot:false },
+  { id:"gym1",      name:"Gym Heroes",            year:2000, era:"90s", total:132, hot:false },
+  { id:"gym2",      name:"Gym Challenge",         year:2000, era:"90s", total:132, hot:false },
+  { id:"neo1",      name:"Neo Genesis",           year:2000, era:"90s", total:111, hot:true  },
+  { id:"neo2",      name:"Neo Discovery",         year:2001, era:"90s", total:75,  hot:false },
+  { id:"neo3",      name:"Neo Revelation",        year:2001, era:"90s", total:66,  hot:false },
+  { id:"neo4",      name:"Neo Destiny",           year:2002, era:"90s", total:113, hot:false },
+  { id:"base6",     name:"Legendary Collection",  year:2002, era:"90s", total:110, hot:false },
+  { id:"ecard1",    name:"Expedition Base Set",   year:2002, era:"00s", total:165, hot:false },
+  { id:"ecard2",    name:"Aquapolis",             year:2003, era:"00s", total:186, hot:false },
+  { id:"ecard3",    name:"Skyridge",              year:2003, era:"00s", total:182, hot:false },
+  { id:"ex1",       name:"Ruby & Sapphire",       year:2003, era:"00s", total:109, hot:false },
+  { id:"ex2",       name:"Sandstorm",             year:2003, era:"00s", total:100, hot:false },
+  { id:"ex3",       name:"Dragon",                year:2003, era:"00s", total:97,  hot:false },
+  { id:"ex4",       name:"Team Magma vs Team Aqua",year:2004,era:"00s", total:97,  hot:false },
+  { id:"ex5",       name:"Hidden Legends",        year:2004, era:"00s", total:102, hot:false },
+  { id:"ex6",       name:"FireRed & LeafGreen",   year:2004, era:"00s", total:116, hot:false },
+  { id:"ex7",       name:"Team Rocket Returns",   year:2004, era:"00s", total:111, hot:false },
+  { id:"ex8",       name:"Deoxys",                year:2005, era:"00s", total:108, hot:false },
+  { id:"ex9",       name:"Emerald",               year:2005, era:"00s", total:106, hot:false },
+  { id:"ex10",      name:"Unseen Forces",         year:2005, era:"00s", total:145, hot:false },
+  { id:"ex11",      name:"Delta Species",         year:2005, era:"00s", total:114, hot:false },
+  { id:"ex12",      name:"Legend Maker",          year:2006, era:"00s", total:93,  hot:false },
+  { id:"ex13",      name:"Holon Phantoms",        year:2006, era:"00s", total:110, hot:false },
+  { id:"ex14",      name:"Crystal Guardians",     year:2006, era:"00s", total:100, hot:false },
+  { id:"ex15",      name:"Dragon Frontiers",      year:2006, era:"00s", total:101, hot:false },
+  { id:"ex16",      name:"Power Keepers",         year:2007, era:"00s", total:108, hot:false },
+  { id:"dp1",       name:"Diamond & Pearl",       year:2007, era:"00s", total:130, hot:false },
+  { id:"dp2",       name:"Mysterious Treasures",  year:2007, era:"00s", total:123, hot:false },
+  { id:"dp3",       name:"Secret Wonders",        year:2007, era:"00s", total:132, hot:false },
+  { id:"dp4",       name:"Great Encounters",      year:2008, era:"00s", total:106, hot:false },
+  { id:"dp5",       name:"Majestic Dawn",         year:2008, era:"00s", total:100, hot:false },
+  { id:"dp6",       name:"Legends Awakened",      year:2008, era:"00s", total:146, hot:false },
+  { id:"dp7",       name:"Stormfront",            year:2008, era:"00s", total:106, hot:false },
+  { id:"pl1",       name:"Platinum",              year:2009, era:"00s", total:133, hot:false },
+  { id:"pl2",       name:"Rising Rivals",         year:2009, era:"00s", total:120, hot:false },
+  { id:"pl3",       name:"Supreme Victors",       year:2009, era:"00s", total:153, hot:false },
+  { id:"pl4",       name:"Arceus",                year:2009, era:"00s", total:111, hot:false },
+  { id:"hgss1",     name:"HeartGold & SoulSilver",year:2010, era:"10s", total:123, hot:false },
+  { id:"hgss2",     name:"Unleashed",             year:2010, era:"10s", total:96,  hot:false },
+  { id:"hgss3",     name:"Undaunted",             year:2010, era:"10s", total:91,  hot:false },
+  { id:"hgss4",     name:"Triumphant",            year:2010, era:"10s", total:103, hot:false },
+  { id:"col1",      name:"Call of Legends",       year:2011, era:"10s", total:95,  hot:false },
+  { id:"bw1",       name:"Black & White",         year:2011, era:"10s", total:114, hot:false },
+  { id:"bw2",       name:"Emerging Powers",       year:2011, era:"10s", total:98,  hot:false },
+  { id:"bw3",       name:"Noble Victories",       year:2011, era:"10s", total:102, hot:false },
+  { id:"bw4",       name:"Next Destinies",        year:2012, era:"10s", total:103, hot:false },
+  { id:"bw5",       name:"Dark Explorers",        year:2012, era:"10s", total:111, hot:false },
+  { id:"bw6",       name:"Dragons Exalted",       year:2012, era:"10s", total:128, hot:false },
+  { id:"bw7",       name:"Boundaries Crossed",    year:2012, era:"10s", total:153, hot:false },
+  { id:"bw8",       name:"Plasma Storm",          year:2013, era:"10s", total:138, hot:false },
+  { id:"bw9",       name:"Plasma Freeze",         year:2013, era:"10s", total:122, hot:false },
+  { id:"bw10",      name:"Plasma Blast",          year:2013, era:"10s", total:105, hot:false },
+  { id:"bw11",      name:"Legendary Treasures",   year:2013, era:"10s", total:140, hot:false },
+  { id:"xy1",       name:"XY",                    year:2014, era:"10s", total:146, hot:false },
+  { id:"xy2",       name:"Flashfire",             year:2014, era:"10s", total:106, hot:false },
+  { id:"xy3",       name:"Furious Fists",         year:2014, era:"10s", total:114, hot:false },
+  { id:"xy4",       name:"Phantom Forces",        year:2014, era:"10s", total:122, hot:false },
+  { id:"xy5",       name:"Primal Clash",          year:2015, era:"10s", total:164, hot:false },
+  { id:"xy6",       name:"Roaring Skies",         year:2015, era:"10s", total:110, hot:false },
+  { id:"xy7",       name:"Ancient Origins",       year:2015, era:"10s", total:100, hot:false },
+  { id:"xy8",       name:"BREAKthrough",          year:2015, era:"10s", total:165, hot:false },
+  { id:"xy9",       name:"BREAKpoint",            year:2016, era:"10s", total:123, hot:false },
+  { id:"xy10",      name:"Fates Collide",         year:2016, era:"10s", total:125, hot:false },
+  { id:"xy11",      name:"Steam Siege",           year:2016, era:"10s", total:116, hot:false },
+  { id:"evolutions",name:"XY Evolutions",         year:2016, era:"10s", total:108, hot:true  },
+  { id:"sm1",       name:"Sun & Moon",            year:2017, era:"10s", total:149, hot:false },
+  { id:"sm2",       name:"Guardians Rising",      year:2017, era:"10s", total:145, hot:false },
+  { id:"sm3",       name:"Burning Shadows",       year:2017, era:"10s", total:169, hot:false },
+  { id:"sm35",      name:"Shining Legends",       year:2017, era:"10s", total:73,  hot:false },
+  { id:"sm4",       name:"Crimson Invasion",      year:2017, era:"10s", total:124, hot:false },
+  { id:"sm5",       name:"Ultra Prism",           year:2018, era:"10s", total:156, hot:false },
+  { id:"sm6",       name:"Forbidden Light",       year:2018, era:"10s", total:146, hot:false },
+  { id:"sm7",       name:"Celestial Storm",       year:2018, era:"10s", total:183, hot:false },
+  { id:"sm75",      name:"Dragon Majesty",        year:2018, era:"10s", total:70,  hot:false },
+  { id:"sm8",       name:"Lost Thunder",          year:2018, era:"10s", total:236, hot:false },
+  { id:"sm9",       name:"Team Up",               year:2019, era:"10s", total:196, hot:false },
+  { id:"sm10",      name:"Unbroken Bonds",        year:2019, era:"10s", total:234, hot:false },
+  { id:"sm11",      name:"Unified Minds",         year:2019, era:"10s", total:236, hot:false },
+  { id:"sm115",     name:"Hidden Fates",          year:2019, era:"10s", total:69,  hot:true  },
+  { id:"sm12",      name:"Cosmic Eclipse",        year:2019, era:"10s", total:272, hot:false },
+  { id:"swsh1",     name:"Sword & Shield",        year:2020, era:"20s", total:216, hot:false },
+  { id:"swsh2",     name:"Rebel Clash",           year:2020, era:"20s", total:209, hot:false },
+  { id:"swsh3",     name:"Darkness Ablaze",       year:2020, era:"20s", total:201, hot:false },
+  { id:"swsh35",    name:"Champion's Path",       year:2020, era:"20s", total:80,  hot:false },
+  { id:"swsh4",     name:"Vivid Voltage",         year:2020, era:"20s", total:203, hot:false },
+  { id:"swsh45",    name:"Shining Fates",         year:2021, era:"20s", total:73,  hot:true  },
+  { id:"swsh5",     name:"Battle Styles",         year:2021, era:"20s", total:183, hot:false },
+  { id:"swsh6",     name:"Chilling Reign",        year:2021, era:"20s", total:233, hot:false },
+  { id:"swsh7",     name:"Evolving Skies",        year:2021, era:"20s", total:237, hot:true  },
+  { id:"swsh8",     name:"Fusion Strike",         year:2021, era:"20s", total:284, hot:false },
+  { id:"swsh9",     name:"Brilliant Stars",       year:2022, era:"20s", total:186, hot:false },
+  { id:"swsh10",    name:"Astral Radiance",       year:2022, era:"20s", total:246, hot:false },
+  { id:"swsh11",    name:"Lost Origin",           year:2022, era:"20s", total:217, hot:false },
+  { id:"swsh12",    name:"Silver Tempest",        year:2022, era:"20s", total:215, hot:false },
+  { id:"swsh12pt5", name:"Crown Zenith",          year:2023, era:"20s", total:160, hot:false },
+  { id:"sv1",       name:"Scarlet & Violet",      year:2023, era:"20s", total:198, hot:false },
+  { id:"sv2",       name:"Paldea Evolved",        year:2023, era:"20s", total:279, hot:false },
+  { id:"sv3",       name:"Obsidian Flames",       year:2023, era:"20s", total:197, hot:true  },
+  { id:"sv3pt5",    name:"151",                   year:2023, era:"20s", total:165, hot:true  },
+  { id:"sv4",       name:"Paradox Rift",          year:2023, era:"20s", total:266, hot:false },
+  { id:"sv4pt5",    name:"Paldean Fates",         year:2024, era:"20s", total:91,  hot:true  },
+  { id:"sv5",       name:"Temporal Forces",       year:2024, era:"20s", total:218, hot:false },
+  { id:"sv6",       name:"Twilight Masquerade",   year:2024, era:"20s", total:167, hot:false },
+  { id:"sv6pt5",    name:"Shrouded Fable",        year:2024, era:"20s", total:99,  hot:false },
+  { id:"sv7",       name:"Stellar Crown",         year:2024, era:"20s", total:175, hot:false },
+  { id:"sv8",       name:"Surging Sparks",        year:2024, era:"20s", total:252, hot:false },
+  { id:"sv8pt5",    name:"Prismatic Evolutions",  year:2025, era:"20s", total:131, hot:true  },
+  { id:"sv9",       name:"Journey Together",      year:2025, era:"20s", total:190, hot:false },
 ];
 
 const ERA_COLOR = { "90s":"#f59e0b","00s":"#22c55e","10s":"#3b82f6","20s":"#8b5cf6" };
@@ -181,8 +273,8 @@ function TypeButton({ type, meta, active, onClick }) {
 
 function SetTile({ set, apiData, onClick }) {
   const [logoError, setLogoError] = useState(false);
-  const logo  = apiData?.images?.logo;
-  const eraC  = ERA_COLOR[set.era] || "#64748b";
+  const logo = apiData?.images?.logo;
+  const eraC = ERA_COLOR[set.era] || "#64748b";
   return (
     <div onClick={onClick} style={{ background:"var(--bg-card)", border:`1px solid ${eraC}33`, borderRadius:12, overflow:"hidden", cursor:"pointer", transition:"all .15s", position:"relative" }}
       onMouseEnter={e => { e.currentTarget.style.borderColor=eraC+"88"; e.currentTarget.style.transform="translateY(-2px)"; }}
@@ -271,20 +363,22 @@ function BrowseRow({ card, last }) {
 }
 
 export default function BrowsePage() {
-  const [query,      setQuery]      = useState("");
-  const [cards,      setCards]      = useState([]);
-  const [loading,    setLoading]    = useState(false);
-  const [setsLoading,setSetsLoading]= useState(true);
-  const [loadingMore,setLoadingMore]= useState(false);
-  const [mode,       setMode]       = useState("home");
-  const [activeSet,  setActiveSet]  = useState(null);
-  const [view,       setView]       = useState("grid");
-  const [filterEra,  setFilterEra]  = useState("All");
-  const [filterType, setFilterType] = useState("All");
-  const [sortBy,     setSortBy]     = useState("number");
-  const [recent,     setRecent]     = useState([]);
-  const [setApiData, setSetApiData] = useState({});
-  const [totalCount, setTotalCount] = useState(0);
+  const [query,        setQuery]        = useState("");
+  const [cards,        setCards]        = useState([]);
+  const [loading,      setLoading]      = useState(false);
+  const [setsLoading,  setSetsLoading]  = useState(true);
+  const [loadingMore,  setLoadingMore]  = useState(false);
+  const [mode,         setMode]         = useState("home");
+  const [activeSet,    setActiveSet]    = useState(null);
+  const [activeType,   setActiveType]   = useState("All"); // ✅ tracks current type search
+  const [view,         setView]         = useState("grid");
+  const [filterEra,    setFilterEra]    = useState("All");
+  const [sortBy,       setSortBy]       = useState("number");
+  const [recent,       setRecent]       = useState([]);
+  const [setApiData,   setSetApiData]   = useState({});
+  const [totalCount,   setTotalCount]   = useState(0);
+  const [typePage,     setTypePage]     = useState(1); // ✅ tracks pagination for type search
+  const [hasMoreType,  setHasMoreType]  = useState(false);
   const debouncedQ = useDebounce(query, 400);
   const abortRef   = useRef(null);
 
@@ -311,6 +405,7 @@ export default function BrowsePage() {
     setLoading(true);
     setCards([]);
     setTotalCount(0);
+    setActiveType("All");
     let page = 1;
     let allCards = [];
     let hasMore = true;
@@ -325,9 +420,7 @@ export default function BrowsePage() {
         setTotalCount(data.totalCount || allCards.length);
         hasMore = batch.length === 250;
         page++;
-      } catch {
-        hasMore = false;
-      }
+      } catch { hasMore = false; }
     }
     setLoading(false);
     setLoadingMore(false);
@@ -337,27 +430,37 @@ export default function BrowsePage() {
     if (abortRef.current) abortRef.current.abort();
     abortRef.current = new AbortController();
     setLoading(true);
+    setActiveType("All");
     fetch(`/api/cards?pageSize=60&q=name:${encodeURIComponent(q)}*`, { signal: abortRef.current.signal })
       .then(r => r.json())
       .then(d => { setCards(d.data || []); setTotalCount(d.totalCount || 0); setLoading(false); })
       .catch(e => { if (e.name !== "AbortError") { setCards([]); setLoading(false); } });
   };
 
-  // ✅ NEW: fetch by type using correct API param
-  const fetchTypeCards = (type) => {
+  // ✅ fetch by type — always fresh, supports pagination
+  const fetchTypeCards = (type, page = 1) => {
     if (abortRef.current) abortRef.current.abort();
     abortRef.current = new AbortController();
-    setLoading(true);
-    setCards([]);
-    fetch(`/api/cards?pageSize=60&q=types:${encodeURIComponent(type)}`, { signal: abortRef.current.signal })
+    if (page === 1) { setLoading(true); setCards([]); }
+    else setLoadingMore(true);
+    fetch(`/api/cards?pageSize=60&page=${page}&q=types:${encodeURIComponent(type)}`, { signal: abortRef.current.signal })
       .then(r => r.json())
-      .then(d => { setCards(d.data || []); setTotalCount(d.totalCount || 0); setLoading(false); })
-      .catch(e => { if (e.name !== "AbortError") { setCards([]); setLoading(false); } });
+      .then(d => {
+        const batch = d.data || [];
+        setCards(prev => page === 1 ? batch : [...prev, ...batch]);
+        setTotalCount(d.totalCount || 0);
+        setTypePage(page);
+        setHasMoreType(batch.length === 60);
+        setLoading(false);
+        setLoadingMore(false);
+      })
+      .catch(e => { if (e.name !== "AbortError") { setCards([]); setLoading(false); setLoadingMore(false); } });
   };
 
   useEffect(() => {
     if (!debouncedQ.trim()) { if (mode === "results") { setMode("home"); setCards([]); } return; }
     setMode("results");
+    setActiveType("All");
     saveRecent(debouncedQ.trim());
     fetchSearchCards(debouncedQ.trim());
   }, [debouncedQ]);
@@ -369,20 +472,33 @@ export default function BrowsePage() {
     fetchSetCards(set.id);
   };
 
+  // ✅ switching types always fetches fresh
+  const switchType = (type) => {
+    if (type === "All") {
+      setActiveType("All");
+      setMode("home");
+      setCards([]);
+      return;
+    }
+    setActiveType(type);
+    setMode("results");
+    setQuery("");
+    setActiveSet(null);
+    fetchTypeCards(type, 1);
+  };
+
   const clearAll = () => {
     setQuery(""); setMode("home"); setActiveSet(null); setCards([]);
-    setFilterEra("All"); setFilterType("All"); setTotalCount(0);
+    setActiveType("All"); setTotalCount(0); setTypePage(1); setHasMoreType(false);
   };
 
   const filteredSets = SET_CATALOG.filter(s => filterEra === "All" || s.era === filterEra);
 
-  const displayCards = cards
-    .filter(c => filterType === "All" || c.types?.includes(filterType))
-    .sort((a, b) => {
-      if (sortBy === "name")   return a.name.localeCompare(b.name);
-      if (sortBy === "rarity") return (a.rarity||"").localeCompare(b.rarity||"");
-      return (parseInt(a.number)||0) - (parseInt(b.number)||0);
-    });
+  const displayCards = cards.sort((a, b) => {
+    if (sortBy === "name")   return a.name.localeCompare(b.name);
+    if (sortBy === "rarity") return (a.rarity||"").localeCompare(b.rarity||"");
+    return (parseInt(a.number)||0) - (parseInt(b.number)||0);
+  });
 
   return (
     <div style={{ background:"var(--bg-base)", minHeight:"100vh", padding:"0 0 60px" }}>
@@ -422,15 +538,8 @@ export default function BrowsePage() {
               <SectionLabel style={{ display:"block", marginBottom:14 }}>Browse by type</SectionLabel>
               <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:8 }}>
                 {Object.entries(TYPE_META).map(([type, meta]) => (
-                  <TypeButton key={type} type={type} meta={meta} active={filterType===type}
-                    onClick={() => {
-                      const newType = filterType === type ? "All" : type;
-                      setFilterType(newType);
-                      if (newType !== "All") {
-                        setMode("results");
-                        fetchTypeCards(newType);
-                      }
-                    }}
+                  <TypeButton key={type} type={type} meta={meta} active={activeType===type}
+                    onClick={() => switchType(activeType === type ? "All" : type)}
                   />
                 ))}
               </div>
@@ -474,6 +583,26 @@ export default function BrowsePage() {
               </div>
             )}
 
+            {/* ✅ Type header when browsing by type */}
+            {mode === "results" && activeType !== "All" && (
+              <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:20, padding:"12px 16px", background:`${TYPE_META[activeType]?.color}18`, border:`1px solid ${TYPE_META[activeType]?.color}44`, borderRadius:12 }}>
+                <EnergySVG type={activeType} size={32} />
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:16, fontWeight:700, color:"var(--text-primary)" }}>{activeType} type</div>
+                  <div style={{ fontSize:11, color:"var(--text-muted)" }}>{loading ? "Loading..." : `${cards.length} cards loaded`}{totalCount > 0 && ` of ${totalCount} total`}</div>
+                </div>
+                <div style={{ display:"flex", gap:6 }}>
+                  {Object.entries(TYPE_META).map(([type, meta]) => (
+                    <button key={type} onClick={() => switchType(type)} title={type}
+                      style={{ width:28, height:28, borderRadius:5, cursor:"pointer", border: activeType===type?`1px solid ${meta.color}`:"1px solid var(--border)", background: activeType===type?`${meta.color}22`:meta.bg, display:"flex", alignItems:"center", justifyContent:"center", padding:3 }}>
+                      <EnergySVG type={type} size={18} />
+                    </button>
+                  ))}
+                </div>
+                <button onClick={clearAll} style={{ padding:"6px 12px", borderRadius:6, border:"1px solid var(--border)", background:"transparent", color:"var(--text-muted)", fontSize:11, cursor:"pointer" }}>← Back</button>
+              </div>
+            )}
+
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14, flexWrap:"wrap", gap:8 }}>
               <div style={{ fontSize:12, color:"var(--text-muted)", fontFamily:"var(--font-mono)" }}>
                 {loading && cards.length === 0 ? "Loading..." : `${displayCards.length} cards`}
@@ -481,14 +610,6 @@ export default function BrowsePage() {
                 {mode === "results" && query && <span style={{ color:"var(--accent-blue)" }}> · "{query}"</span>}
               </div>
               <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
-                <div style={{ display:"flex", gap:4, alignItems:"center" }}>
-                  <button onClick={() => setFilterType("All")} style={{ padding:"4px 8px", borderRadius:5, fontSize:10, cursor:"pointer", fontFamily:"var(--font-mono)", border: filterType==="All"?"1px solid var(--accent-amber)":"1px solid var(--border)", background: filterType==="All"?"#2a1e00":"transparent", color: filterType==="All"?"var(--accent-gold)":"var(--text-muted)" }}>All</button>
-                  {Object.entries(TYPE_META).map(([type, meta]) => (
-                    <button key={type} onClick={() => setFilterType(filterType===type?"All":type)} title={type} style={{ width:28, height:28, borderRadius:5, cursor:"pointer", border: filterType===type?`1px solid ${meta.color}`:"1px solid var(--border)", background: filterType===type?`${meta.color}22`:meta.bg, display:"flex", alignItems:"center", justifyContent:"center", padding:3 }}>
-                      <EnergySVG type={type} size={18} />
-                    </button>
-                  ))}
-                </div>
                 <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={{ padding:"6px 10px", borderRadius:6, fontSize:11, cursor:"pointer", fontFamily:"var(--font-mono)" }}>
                   <option value="number">By number</option>
                   <option value="name">By name</option>
@@ -525,6 +646,20 @@ export default function BrowsePage() {
                 {displayCards.map((card, i) => <BrowseRow key={card.id} card={card} last={i===displayCards.length-1} />)}
                 {loadingMore && <div style={{ padding:20, textAlign:"center" }}><Spinner /></div>}
               </Panel>
+            )}
+
+            {/* ✅ Load more button for type searches */}
+            {mode === "results" && activeType !== "All" && hasMoreType && !loading && !loadingMore && (
+              <div style={{ display:"flex", justifyContent:"center", marginTop:24 }}>
+                <button
+                  onClick={() => fetchTypeCards(activeType, typePage + 1)}
+                  style={{ padding:"10px 28px", borderRadius:8, border:"1px solid var(--border)", background:"var(--bg-card)", color:"var(--text-secondary)", cursor:"pointer", fontSize:12, fontWeight:600 }}
+                  onMouseEnter={e => e.currentTarget.style.borderColor="var(--accent-blue)"}
+                  onMouseLeave={e => e.currentTarget.style.borderColor="var(--border)"}
+                >
+                  Load more {activeType} cards
+                </button>
+              </div>
             )}
           </div>
         )}
