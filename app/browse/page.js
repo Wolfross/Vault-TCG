@@ -3,10 +3,6 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { Panel, SectionLabel, MonoText, PixelText, HoloBadge, EraTag, Spinner, EmptyState } from "@/components/shared/ui";
 
-/* ─── SVG Energy Symbols ─────────────────────────────────────────
-   Hand-crafted SVGs matching the Pokémon TCG energy symbol aesthetic.
-   No external images needed — renders perfectly at any size.
-─────────────────────────────────────────────────────────────────── */
 function EnergySVG({ type, size = 28 }) {
   const s = size;
   const symbols = {
@@ -274,9 +270,6 @@ function BrowseRow({ card, last }) {
   );
 }
 
-/* ════════════════════════════════════
-   MAIN
-════════════════════════════════════ */
 export default function BrowsePage() {
   const [query,      setQuery]      = useState("");
   const [cards,      setCards]      = useState([]);
@@ -314,7 +307,6 @@ export default function BrowsePage() {
     localStorage.setItem("vault_recent_searches", JSON.stringify(next));
   };
 
-  /* Fetch ALL cards in a set using pagination */
   const fetchSetCards = async (setId) => {
     setLoading(true);
     setCards([]);
@@ -322,7 +314,6 @@ export default function BrowsePage() {
     let page = 1;
     let allCards = [];
     let hasMore = true;
-
     while (hasMore) {
       if (page > 1) setLoadingMore(true);
       try {
@@ -332,7 +323,6 @@ export default function BrowsePage() {
         allCards = [...allCards, ...batch];
         setCards([...allCards]);
         setTotalCount(data.totalCount || allCards.length);
-        /* If we got fewer than 250, we're done */
         hasMore = batch.length === 250;
         page++;
       } catch {
@@ -343,12 +333,23 @@ export default function BrowsePage() {
     setLoadingMore(false);
   };
 
-  /* Fetch cards for search */
   const fetchSearchCards = (q) => {
     if (abortRef.current) abortRef.current.abort();
     abortRef.current = new AbortController();
     setLoading(true);
     fetch(`/api/cards?pageSize=60&q=name:${encodeURIComponent(q)}*`, { signal: abortRef.current.signal })
+      .then(r => r.json())
+      .then(d => { setCards(d.data || []); setTotalCount(d.totalCount || 0); setLoading(false); })
+      .catch(e => { if (e.name !== "AbortError") { setCards([]); setLoading(false); } });
+  };
+
+  // ✅ NEW: fetch by type using correct API param
+  const fetchTypeCards = (type) => {
+    if (abortRef.current) abortRef.current.abort();
+    abortRef.current = new AbortController();
+    setLoading(true);
+    setCards([]);
+    fetch(`/api/cards?pageSize=60&q=types:${encodeURIComponent(type)}`, { signal: abortRef.current.signal })
       .then(r => r.json())
       .then(d => { setCards(d.data || []); setTotalCount(d.totalCount || 0); setLoading(false); })
       .catch(e => { if (e.name !== "AbortError") { setCards([]); setLoading(false); } });
@@ -386,7 +387,6 @@ export default function BrowsePage() {
   return (
     <div style={{ background:"var(--bg-base)", minHeight:"100vh", padding:"0 0 60px" }}>
 
-      {/* Sticky search */}
       <div style={{ background:"var(--bg-nav)", borderBottom:"1px solid var(--border)", padding:"12px 24px", position:"sticky", top:52, zIndex:90 }}>
         <div style={{ maxWidth:1100, margin:"0 auto", position:"relative" }}>
           <span style={{ position:"absolute", left:14, top:"50%", transform:"translateY(-50%)", color:"var(--text-muted)", fontSize:16, pointerEvents:"none" }}>⌕</span>
@@ -398,7 +398,6 @@ export default function BrowsePage() {
 
       <div style={{ maxWidth:1100, margin:"0 auto", padding:"20px 24px" }}>
 
-        {/* ── HOME ── */}
         {mode === "home" && (
           <div>
             {recent.length > 0 && (
@@ -419,18 +418,24 @@ export default function BrowsePage() {
               </div>
             )}
 
-            {/* Energy type buttons with SVG symbols */}
             <div style={{ marginBottom:32 }}>
               <SectionLabel style={{ display:"block", marginBottom:14 }}>Browse by type</SectionLabel>
               <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:8 }}>
                 {Object.entries(TYPE_META).map(([type, meta]) => (
                   <TypeButton key={type} type={type} meta={meta} active={filterType===type}
-                    onClick={() => { setFilterType(filterType===type?"All":type); setQuery(type); }} />
+                    onClick={() => {
+                      const newType = filterType === type ? "All" : type;
+                      setFilterType(newType);
+                      if (newType !== "All") {
+                        setMode("results");
+                        fetchTypeCards(newType);
+                      }
+                    }}
+                  />
                 ))}
               </div>
             </div>
 
-            {/* Sets */}
             <div>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
                 <SectionLabel>Browse sets</SectionLabel>
@@ -450,7 +455,6 @@ export default function BrowsePage() {
           </div>
         )}
 
-        {/* ── RESULTS / SET ── */}
         {(mode === "results" || mode === "set") && (
           <div>
             {mode === "set" && activeSet && (
@@ -477,7 +481,6 @@ export default function BrowsePage() {
                 {mode === "results" && query && <span style={{ color:"var(--accent-blue)" }}> · "{query}"</span>}
               </div>
               <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
-                {/* SVG type filter icons */}
                 <div style={{ display:"flex", gap:4, alignItems:"center" }}>
                   <button onClick={() => setFilterType("All")} style={{ padding:"4px 8px", borderRadius:5, fontSize:10, cursor:"pointer", fontFamily:"var(--font-mono)", border: filterType==="All"?"1px solid var(--accent-amber)":"1px solid var(--border)", background: filterType==="All"?"#2a1e00":"transparent", color: filterType==="All"?"var(--accent-gold)":"var(--text-muted)" }}>All</button>
                   {Object.entries(TYPE_META).map(([type, meta]) => (
