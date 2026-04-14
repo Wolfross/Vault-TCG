@@ -244,7 +244,15 @@ export default function CardDetail() {
     const q = `${card.name} ${card.set?.name} ${card.number}`;
     fetch(`/api/ebay?card=${encodeURIComponent(q)}&condition=${encodeURIComponent(condition)}`)
       .then(r => r.json())
-      .then(d => setEbay(d))
+      .then(d => {
+        // If eBay is rate limited and returned mock data, don't overwrite
+        // good cached data — show a degraded state instead
+        if (d.source === "mock") {
+          setEbay({ items:[], source:"unavailable" });
+        } else {
+          setEbay(d);
+        }
+      })
       .catch(() => setEbay({ items:[], source:"error" }));
   }, [card, condition]);
 
@@ -526,6 +534,11 @@ export default function CardDetail() {
             </div>
             {ebay.source === "loading" ? (
               <div style={{ padding:32, display:"flex", justifyContent:"center" }}><Spinner /></div>
+            ) : ebay.source === "unavailable" ? (
+              <div style={{ padding:32, textAlign:"center" }}>
+                <div style={{ fontSize:13, color:"var(--text-dim)", marginBottom:8 }}>eBay pricing temporarily unavailable</div>
+                <div style={{ fontSize:11, color:"var(--text-dim)", fontFamily:"var(--font-mono)" }}>Daily API limit reached — data will refresh automatically tomorrow</div>
+              </div>
             ) : ebay.items.length === 0 ? (
               <div style={{ padding:32, textAlign:"center", color:"var(--text-dim)", fontSize:13 }}>No sold listings found</div>
             ) : (
@@ -622,7 +635,6 @@ export default function CardDetail() {
           </Panel>
         )}
 
-        {/* Grade change confirm modal */}
         {pendingGrade && (
           <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.8)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200, padding:20 }}>
             <Panel style={{ padding:24, maxWidth:360, width:"100%", textAlign:"center" }}>
