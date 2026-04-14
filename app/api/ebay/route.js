@@ -2,12 +2,13 @@
  * /api/ebay?card=Charizard Base Set 4/102&condition=Raw
  *
  * Uses eBay Finding API → findCompletedItems with SoldItemsOnly=true
- * This returns SOLD listings only — not active listings.
- * Active listings tell you what sellers hope to get.
- * Sold listings tell you what the market actually paid.
- *
- * Only requires EBAY_CLIENT_ID (App ID) — no OAuth needed for Finding API.
+ * Results are cached in Supabase (ebay_price_cache table) for 24 hours
+ * to avoid burning the daily rate limit on repeated page loads.
  */
+
+import { supabase } from "@/lib/supabase";
+
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
@@ -16,12 +17,46 @@ export async function GET(request) {
 
   const appId = process.env.EBAY_CLIENT_ID;
 
-  // No key = return mock data so UI still works during setup
+  // Build cache key from card + condition
+  const cacheKey = `${card}__${condition}`.toLowerCase().replace(/\s+/g, "_");
+
+  // ── 1. Check Supabase cache first ──
+  if (supabase) {
+    try {
+      const { data: cached } = await supabase
+        .from("ebay_price_cache")
+        .select("*")
+        .eq("card_id", cacheKey)
+        .single();
+
+      if (cached) {
+        const age = Date.now() - new Date(cached.fetched_at).getTime();
+        if (age < CACHE_TTL_MS) {
+          console.log(`[eBay cache] HIT for ${cacheKey} (${Math.round(age / 60000)}m old)`);
+          return Response.json({
+            source: "ebay",
+            cached: true,
+            items: cached.results,
+            averagePrice: cached.average_price,
+          });
+        } else {
+          console.log(`[eBay cache] STALE for ${cacheKey}, fetching fresh`);
+        }
+      } else {
+        console.log(`[eBay cache] MISS for ${cacheKey}, fetching fresh`);
+      }
+    } catch (e) {
+      console.error("[eBay cache] Read error:", e.message);
+      // Don't block — fall through to live fetch
+    }
+  }
+
+  // ── 2. No key = return mock data ──
   if (!appId) {
     return Response.json({ source: "mock", items: getMockSales(card, condition) });
   }
 
-  // Build a tight search query
+  // ── 3. Build eBay query ──
   let keywords = `${card} pokemon`;
   if (condition.includes("PSA")) keywords += ` PSA ${condition.replace("PSA ", "")}`;
   if (condition.includes("BGS")) keywords += ` BGS ${condition.replace("BGS ", "")}`;
@@ -47,7 +82,7 @@ export async function GET(request) {
   const url = `https://svcs.ebay.com/services/search/FindingService/v1?${params.toString()}`;
 
   try {
-const res = await fetch(url, { cache: "no-store" });
+    const res = await fetch(url, { cache: "no-store" });
     const data = await res.json();
 
     const root = data?.findCompletedItemsResponse?.[0];
@@ -88,9 +123,33 @@ const res = await fetch(url, { cache: "no-store" });
       .filter(item => item.price > 0)
       .slice(0, 20);
 
+    // ── 4. Calculate average price ──
+    const averagePrice = items.length > 0
+      ? Math.round((items.reduce((sum, i) => sum + i.price, 0) / items.length) * 100) / 100
+      : null;
+
+    // ── 5. Write to Supabase cache ──
+    if (supabase && items.length > 0) {
+      try {
+        await supabase
+          .from("ebay_price_cache")
+          .upsert({
+            card_id: cacheKey,
+            card_name: card,
+            results: items,
+            average_price: averagePrice,
+            fetched_at: new Date().toISOString(),
+          }, { onConflict: "card_id" });
+        console.log(`[eBay cache] Wrote ${items.length} items for ${cacheKey}`);
+      } catch (e) {
+        console.error("[eBay cache] Write error:", e.message);
+        // Don't block — still return the results
+      }
+    }
+
     const ebaySearchUrl = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(keywords)}&LH_Sold=1&LH_Complete=1&_sacat=2536`;
 
-    return Response.json({ source: "ebay", items, ebaySearchUrl });
+    return Response.json({ source: "ebay", cached: false, items, averagePrice, ebaySearchUrl });
 
   } catch (e) {
     console.error("eBay fetch error:", e.message);
