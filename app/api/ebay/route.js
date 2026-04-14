@@ -2,8 +2,8 @@
  * /api/ebay?card=Charizard Base Set 4/102&condition=Raw
  *
  * Uses eBay Finding API → findCompletedItems with SoldItemsOnly=true
- * Results are cached in Supabase (ebay_price_cache table) for 24 hours
- * to avoid burning the daily rate limit on repeated page loads.
+ * Results are cached in Supabase (ebay_price_cache table) for 24 hours.
+ * If eBay is rate limited or errors, serves stale cache rather than mock data.
  */
 
 import { supabase } from "@/lib/supabase";
@@ -17,10 +17,11 @@ export async function GET(request) {
 
   const appId = process.env.EBAY_CLIENT_ID;
 
-  // Build cache key from card + condition
   const cacheKey = `${card}__${condition}`.toLowerCase().replace(/\s+/g, "_");
 
-  // ── 1. Check Supabase cache first ──
+  // ── 1. Check Supabase cache ──
+  let staleCache = null;
+
   if (supabase) {
     try {
       const { data: cached } = await supabase
@@ -32,6 +33,7 @@ export async function GET(request) {
       if (cached) {
         const age = Date.now() - new Date(cached.fetched_at).getTime();
         if (age < CACHE_TTL_MS) {
+          // Fresh cache — return immediately
           console.log(`[eBay cache] HIT for ${cacheKey} (${Math.round(age / 60000)}m old)`);
           return Response.json({
             source: "ebay",
@@ -40,19 +42,29 @@ export async function GET(request) {
             averagePrice: cached.average_price,
           });
         } else {
-          console.log(`[eBay cache] STALE for ${cacheKey}, fetching fresh`);
+          // Stale but keep it as a fallback in case eBay fails
+          console.log(`[eBay cache] STALE for ${cacheKey}, attempting fresh fetch`);
+          staleCache = cached;
         }
       } else {
         console.log(`[eBay cache] MISS for ${cacheKey}, fetching fresh`);
       }
     } catch (e) {
       console.error("[eBay cache] Read error:", e.message);
-      // Don't block — fall through to live fetch
     }
   }
 
-  // ── 2. No key = return mock data ──
+  // ── 2. No key = serve stale cache or mock ──
   if (!appId) {
+    if (staleCache) {
+      return Response.json({
+        source: "ebay",
+        cached: true,
+        stale: true,
+        items: staleCache.results,
+        averagePrice: staleCache.average_price,
+      });
+    }
     return Response.json({ source: "mock", items: getMockSales(card, condition) });
   }
 
@@ -89,6 +101,19 @@ export async function GET(request) {
     if (!root || root.ack?.[0] !== "Success") {
       const errDetail = JSON.stringify(root?.errorMessage || root || data);
       console.error("eBay Finding API error:", errDetail);
+
+      // ── Rate limited or error: serve stale cache if we have it ──
+      if (staleCache) {
+        console.log(`[eBay cache] eBay failed, serving stale cache for ${cacheKey}`);
+        return Response.json({
+          source: "ebay",
+          cached: true,
+          stale: true,
+          items: staleCache.results,
+          averagePrice: staleCache.average_price,
+        });
+      }
+
       return Response.json({ source: "mock", items: getMockSales(card, condition), error: errDetail });
     }
 
@@ -143,7 +168,6 @@ export async function GET(request) {
         console.log(`[eBay cache] Wrote ${items.length} items for ${cacheKey}`);
       } catch (e) {
         console.error("[eBay cache] Write error:", e.message);
-        // Don't block — still return the results
       }
     }
 
@@ -153,6 +177,19 @@ export async function GET(request) {
 
   } catch (e) {
     console.error("eBay fetch error:", e.message);
+
+    // Network error: serve stale cache if we have it
+    if (staleCache) {
+      console.log(`[eBay cache] Network error, serving stale cache for ${cacheKey}`);
+      return Response.json({
+        source: "ebay",
+        cached: true,
+        stale: true,
+        items: staleCache.results,
+        averagePrice: staleCache.average_price,
+      });
+    }
+
     return Response.json({ source: "mock", items: getMockSales(card, condition), error: e.message });
   }
 }
