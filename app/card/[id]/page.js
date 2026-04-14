@@ -55,19 +55,41 @@ function getTcgPrice(card) {
     || p["1stEditionHolofoil"]?.market || p.unlimitedHolofoil?.market || null;
 }
 
-function MyCopyPanel({ collectionItem, bestPrice, onUpdated, onDeleted }) {
-  const [editing,  setEditing]  = useState(false);
-  const [cond,     setCond]     = useState(collectionItem.condition || "NM");
-  const [purchase, setPurchase] = useState(collectionItem.purchase_price || "");
-  const [notes,    setNotes]    = useState(collectionItem.notes || "");
-  const [saving,   setSaving]   = useState(false);
-  const [showDel,  setShowDel]  = useState(false);
-  const [deleting, setDeleting] = useState(false);
+function MyCopyPanel({ collectionItem, ebayAvg, tcgPrice, cmPrice, onUpdated, onDeleted }) {
+  const [editing,     setEditing]     = useState(false);
+  const [cond,        setCond]        = useState(collectionItem.condition || "NM");
+  const [purchase,    setPurchase]    = useState(collectionItem.purchase_price || "");
+  const [notes,       setNotes]       = useState(collectionItem.notes || "");
+  const [saving,      setSaving]      = useState(false);
+  const [showDel,     setShowDel]     = useState(false);
+  const [deleting,    setDeleting]    = useState(false);
+  const [priceSource, setPriceSource] = useState(() => {
+    // Default to whichever source has data, preferring eBay
+    if (ebayAvg) return "ebay";
+    if (tcgPrice) return "tcg";
+    if (cmPrice) return "cm";
+    return "ebay";
+  });
+  const [savingSource, setSavingSource] = useState(false);
 
-  const currentPrice = collectionItem.current_price || bestPrice;
+  const sourcePrice = priceSource === "ebay" ? ebayAvg
+    : priceSource === "tcg" ? tcgPrice
+    : cmPrice;
+
+  const currentPrice = sourcePrice || collectionItem.current_price;
   const hasCost      = collectionItem.purchase_price > 0;
   const gain         = currentPrice && hasCost ? currentPrice - collectionItem.purchase_price : null;
   const gainPct      = gain !== null ? ((gain / collectionItem.purchase_price) * 100).toFixed(1) : null;
+
+  const handleSourceChange = async (src) => {
+    setPriceSource(src);
+    const newPrice = src === "ebay" ? ebayAvg : src === "tcg" ? tcgPrice : cmPrice;
+    if (!newPrice) return;
+    setSavingSource(true);
+    await updateCard(collectionItem.id, { current_price: newPrice, price_source: src });
+    setSavingSource(false);
+    onUpdated({ ...collectionItem, current_price: newPrice, price_source: src });
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -85,6 +107,12 @@ function MyCopyPanel({ collectionItem, bestPrice, onUpdated, onDeleted }) {
     setDeleting(false);
     onDeleted();
   };
+
+  const sources = [
+    { key:"ebay", label:"eBay",  value: ebayAvg  },
+    { key:"tcg",  label:"TCG",   value: tcgPrice  },
+    { key:"cm",   label:"CM",    value: cmPrice   },
+  ];
 
   return (
     <Panel accent="var(--accent-green)" style={{ marginBottom:20 }}>
@@ -107,17 +135,49 @@ function MyCopyPanel({ collectionItem, bestPrice, onUpdated, onDeleted }) {
         {!editing ? (
           <div>
             <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, marginBottom: gain !== null || collectionItem.notes ? 12 : 0 }}>
-              {[
-                { label:"Grade",     value: collectionItem.grade || "Raw" },
-                { label:"Condition", value: collectionItem.condition || "—" },
-                { label:"Value",     value: currentPrice ? fmtFull(currentPrice) : "— unpriced" },
-                { label:"Paid",      value: hasCost ? fmtFull(collectionItem.purchase_price) : "—" },
-              ].map(({ label, value }) => (
-                <div key={label} style={{ background:"var(--bg-base)", borderRadius:8, padding:"10px 12px", border:"1px solid var(--border-dim)" }}>
-                  <SectionLabel style={{ marginBottom:4 }}>{label}</SectionLabel>
-                  <div style={{ fontSize:13, fontWeight:600, color: label==="Value" ? "var(--accent-gold)" : "var(--text-primary)", fontFamily: label==="Value"||label==="Paid" ? "var(--font-mono)" : "inherit" }}>{value}</div>
+              <div style={{ background:"var(--bg-base)", borderRadius:8, padding:"10px 12px", border:"1px solid var(--border-dim)" }}>
+                <SectionLabel style={{ marginBottom:4 }}>Grade</SectionLabel>
+                <div style={{ fontSize:13, fontWeight:600, color:"var(--text-primary)" }}>{collectionItem.grade || "Raw"}</div>
+              </div>
+              <div style={{ background:"var(--bg-base)", borderRadius:8, padding:"10px 12px", border:"1px solid var(--border-dim)" }}>
+                <SectionLabel style={{ marginBottom:4 }}>Condition</SectionLabel>
+                <div style={{ fontSize:13, fontWeight:600, color:"var(--text-primary)" }}>{collectionItem.condition || "—"}</div>
+              </div>
+
+              {/* Value tile with source selector */}
+              <div style={{ background:"var(--bg-base)", borderRadius:8, padding:"10px 12px", border:"1px solid var(--border-dim)", gridColumn:"span 1" }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+                  <SectionLabel>Value</SectionLabel>
+                  <div style={{ display:"flex", gap:3 }}>
+                    {sources.map(s => (
+                      <button
+                        key={s.key}
+                        onClick={() => handleSourceChange(s.key)}
+                        disabled={!s.value}
+                        title={s.value ? fmtFull(s.value) : "No data"}
+                        style={{
+                          padding:"1px 5px", borderRadius:3, fontSize:9, cursor: s.value ? "pointer" : "not-allowed",
+                          fontFamily:"var(--font-mono)", fontWeight:600,
+                          border: priceSource === s.key ? "1px solid var(--accent-green)" : "1px solid var(--border)",
+                          background: priceSource === s.key ? "#052e16" : "transparent",
+                          color: priceSource === s.key ? "#4ade80" : s.value ? "var(--text-dim)" : "var(--border)",
+                          opacity: s.value ? 1 : 0.4,
+                          transition:"all .1s",
+                        }}
+                      >{s.label}</button>
+                    ))}
+                  </div>
                 </div>
-              ))}
+                <div style={{ fontSize:13, fontWeight:600, color:"var(--accent-gold)", fontFamily:"var(--font-mono)" }}>
+                  {currentPrice ? fmtFull(currentPrice) : "— unpriced"}
+                  {savingSource && <span style={{ fontSize:9, color:"var(--text-dim)", marginLeft:6 }}>saving...</span>}
+                </div>
+              </div>
+
+              <div style={{ background:"var(--bg-base)", borderRadius:8, padding:"10px 12px", border:"1px solid var(--border-dim)" }}>
+                <SectionLabel style={{ marginBottom:4 }}>Paid</SectionLabel>
+                <div style={{ fontSize:13, fontWeight:600, color:"var(--text-primary)", fontFamily:"var(--font-mono)" }}>{hasCost ? fmtFull(collectionItem.purchase_price) : "—"}</div>
+              </div>
             </div>
 
             {gain !== null && (
@@ -245,8 +305,6 @@ export default function CardDetail() {
     fetch(`/api/ebay?card=${encodeURIComponent(q)}&condition=${encodeURIComponent(condition)}`)
       .then(r => r.json())
       .then(d => {
-        // If eBay is rate limited and returned mock data, don't overwrite
-        // good cached data — show a degraded state instead
         if (d.source === "mock") {
           setEbay({ items:[], source:"unavailable" });
         } else {
@@ -464,7 +522,9 @@ export default function CardDetail() {
         {collectionItem && (
           <MyCopyPanel
             collectionItem={collectionItem}
-            bestPrice={bestPrice}
+            ebayAvg={ebayAvg}
+            tcgPrice={tcgPrice}
+            cmPrice={cmPrice}
             onUpdated={(updated) => setCollectionItem(updated)}
             onDeleted={() => setCollectionItem(null)}
           />
